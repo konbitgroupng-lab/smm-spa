@@ -57,6 +57,6 @@ body {
   display: inline-block;
   aspect-ratio: 194 / 150;
   background: linear-gradient(135deg, #F3AFC9 0%, #C97A94 50%, #8B3A63 100%);
-  -webkit-mask: url('/src/assets/images/smm_logo_mask.png') center / contain no-repeat;
-  mask: url('/src/assets/images/smm_logo_mask.png') center / contain no-repeat;
+  -webkit-mask: url('/assets/images/smm_logo_mask.png') center / contain no-repeat;
+  mask: url('/assets/images/smm_logo_mask.png') center / contain no-repeat;
 }

@@ -58,7 +58,7 @@ export const servicesData: Service[] = [
       'Reduces fine lines & uneven skin texture',
       'Leaves skin visibly smoother & more hydrated'
     ],
-    imageUrl: '/src/assets/images/facial-treatment.jpg'
+    imageUrl: '/assets/images/facial-treatment.jpg'
   },
   {
     id: 'swedish',
@@ -75,7 +75,7 @@ export const servicesData: Service[] = [
       'Alleviates mild headaches & migraines',
       'Boosts overall well-being & enhances deep sleep'
     ],
-    imageUrl: '/src/assets/images/swedish_massage_1783346044608.jpg'
+    imageUrl: '/assets/images/swedish_massage_1783346044608.jpg'
   },
   {
     id: 'deep-tissue',
@@ -92,7 +92,7 @@ export const servicesData: Service[] = [
       'Accelerates muscle recovery & athletic repair',
       'Provides profound somatic stress relief'
     ],
-    imageUrl: '/src/assets/images/deep-tissue-massage.jpg'
+    imageUrl: '/assets/images/deep-tissue-massage.jpg'
   },
   {
     id: 'hot-stone',
@@ -109,7 +109,7 @@ export const servicesData: Service[] = [
       'Soothes symptoms of restlessness, anxiety, & mental fatigue',
       'Unlocks energy flow and emotional peace'
     ],
-    imageUrl: '/src/assets/images/hot_stone_massage_1783345970205.jpg'
+    imageUrl: '/assets/images/hot_stone_massage_1783345970205.jpg'
   },
   {
     id: 'nuru',
@@ -126,7 +126,7 @@ export const servicesData: Service[] = [
       'Dissolves absolute muscular and psychological fatigue',
       'Customized and catered with highest professional standards'
     ],
-    imageUrl: '/src/assets/images/nuru-massage.jpg'
+    imageUrl: '/assets/images/nuru-massage.jpg'
   },
   {
     id: 'thai-massage',
@@ -143,7 +143,7 @@ export const servicesData: Service[] = [
       'Eases stiffness in the back, hips, & shoulders',
       'Leaves the mind and body feeling restored'
     ],
-    imageUrl: '/src/assets/images/thai-massage.jpg'
+    imageUrl: '/assets/images/thai-massage.jpg'
   }
 ];
 
@@ -171,7 +171,7 @@ export const packagesData: SpaPackage[] = [
       'Hot Stone Therapy (60 mins)',
       'Save ₦10,000 versus booking separately'
     ],
-    imageUrl: '/src/assets/images/spa_wellness_corner_1783345984514.jpg'
+    imageUrl: '/assets/images/spa_wellness_corner_1783345984514.jpg'
   },
   {
     id: 'pkg-signature',
@@ -191,7 +191,7 @@ export const packagesData: SpaPackage[] = [
       'Hot Stone Therapy (60 mins)',
       'Save ₦20,000 versus booking separately'
     ],
-    imageUrl: '/src/assets/images/hot_stone_massage_1783345970205.jpg'
+    imageUrl: '/assets/images/hot_stone_massage_1783345970205.jpg'
   },
   {
     id: 'pkg-ultimate',
@@ -211,7 +211,7 @@ export const packagesData: SpaPackage[] = [
       'Nuru Massage (60 mins)',
       'Save ₦35,000 versus booking separately'
     ],
-    imageUrl: '/src/assets/images/spa_aromatherapy_1783346057871.jpg'
+    imageUrl: '/assets/images/spa_aromatherapy_1783346057871.jpg'
   }
 ];
 
@@ -223,7 +223,7 @@ export const therapistsData: Therapist[] = [
     specialty: 'Swedish & Aromatherapy',
     bio: 'Brings a calm, intuitive touch to every session, easing tension through slow, rhythmic Swedish strokes and aromatic oils.',
     rating: 5,
-    avatarUrl: '/src/assets/images/team/therapist-1.jpg'
+    avatarUrl: '/assets/images/team/therapist-1.jpg'
   },
   {
     id: 'therapist-2',
@@ -232,7 +232,7 @@ export const therapistsData: Therapist[] = [
     specialty: 'Hot Stone & Luxury Wellness',
     bio: 'Combines heated stones and warm aromatic oils to melt away deep-seated tension and restore a sense of balance.',
     rating: 5,
-    avatarUrl: '/src/assets/images/team/therapist-2.jpg'
+    avatarUrl: '/assets/images/team/therapist-2.jpg'
   },
   {
     id: 'therapist-3',
@@ -241,7 +241,7 @@ export const therapistsData: Therapist[] = [
     specialty: 'Facials & Waxing',
     bio: 'Delivers premium facials, waxing, and skin-glow treatments tailored to leave clients refreshed and radiant.',
     rating: 5,
-    avatarUrl: '/src/assets/images/team/therapist-3.jpg'
+    avatarUrl: '/assets/images/team/therapist-3.jpg'
   },
   {
     id: 'therapist-4',
@@ -250,7 +250,7 @@ export const therapistsData: Therapist[] = [
     specialty: 'Detox & Reflexology',
     bio: 'Specializes in full body detox and reflexology, helping clients release toxins and restore natural energy flow.',
     rating: 4.9,
-    avatarUrl: '/src/assets/images/team/therapist-4.jpg'
+    avatarUrl: '/assets/images/team/therapist-4.jpg'
   }
 ];
 
@@ -259,31 +259,31 @@ export const galleryData: GalleryItem[] = [
     id: 'gal-1',
     title: 'Serene Sanctuary Room',
     category: 'sanctuary',
-    imageUrl: '/src/assets/images/spa_hero_banner_1783345955168.jpg'
+    imageUrl: '/assets/images/spa_hero_banner_1783345955168.jpg'
   },
   {
     id: 'gal-2',
     title: 'Heated Volcanic Basalt Stones',
     category: 'treatments',
-    imageUrl: '/src/assets/images/hot_stone_massage_1783345970205.jpg'
+    imageUrl: '/assets/images/hot_stone_massage_1783345970205.jpg'
   },
   {
     id: 'gal-3',
     title: 'Aromatherapy Oils & Rituals',
     category: 'therapy',
-    imageUrl: '/src/assets/images/spa_aromatherapy_1783346057871.jpg'
+    imageUrl: '/assets/images/spa_aromatherapy_1783346057871.jpg'
   },
   {
     id: 'gal-4',
     title: 'Relaxation Lounge',
     category: 'sanctuary',
-    imageUrl: '/src/assets/images/spa_wellness_corner_1783345984514.jpg'
+    imageUrl: '/assets/images/spa_wellness_corner_1783345984514.jpg'
   },
   {
     id: 'gal-5',
     title: 'Professional Swedish Treatment',
     category: 'treatments',
-    imageUrl: '/src/assets/images/swedish_massage_1783346044608.jpg'
+    imageUrl: '/assets/images/swedish_massage_1783346044608.jpg'
   },
   {
     id: 'gal-6',

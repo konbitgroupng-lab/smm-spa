@@ -67,15 +67,15 @@ interface VideoGalleryItem {
 }
 
 const videoGalleryData: VideoGalleryItem[] = [
-  { id: 'teeth-whitening', title: 'Teeth Whitening Session', category: 'services', videoUrl: '/src/assets/videos/gallery/teeth-whitening.mp4' },
-  { id: 'soft-wax', title: 'Soft Wax Treatment', category: 'services', videoUrl: '/src/assets/videos/gallery/soft-wax.mp4' },
-  { id: 'thai-stone-massage', title: 'Thai Stone Massage', category: 'services', videoUrl: '/src/assets/videos/gallery/thai-stone-massage.mp4' },
-  { id: 'full-body-detox', title: 'Full Body Detox', category: 'services', videoUrl: '/src/assets/videos/gallery/full-body-detox.mp4' },
-  { id: 'spa-rooms', title: 'Spa Rooms & Facility Tour', category: 'facility', videoUrl: '/src/assets/videos/gallery/spa-rooms.mp4' },
-  { id: 'lagos-walkthrough', title: 'Lagos Sanctuary Walkthrough', category: 'facility', videoUrl: '/src/assets/videos/gallery/lagos-walkthrough.mp4' },
-  { id: 'operational-hours', title: 'We Are Open', category: 'facility', videoUrl: '/src/assets/videos/gallery/operational-hours.mp4' },
-  { id: 'ceo-training-talk', title: 'CEO Training Talk', category: 'training', videoUrl: '/src/assets/videos/gallery/ceo-training-talk.mp4', hasNarration: true },
-  { id: 'abuja-training-highlight', title: 'Abuja Training Highlight', category: 'training', videoUrl: '/src/assets/videos/gallery/abuja-training-highlight.mp4', hasNarration: true },
+  { id: 'teeth-whitening', title: 'Teeth Whitening Session', category: 'services', videoUrl: '/assets/videos/gallery/teeth-whitening.mp4' },
+  { id: 'soft-wax', title: 'Soft Wax Treatment', category: 'services', videoUrl: '/assets/videos/gallery/soft-wax.mp4' },
+  { id: 'thai-stone-massage', title: 'Thai Stone Massage', category: 'services', videoUrl: '/assets/videos/gallery/thai-stone-massage.mp4' },
+  { id: 'full-body-detox', title: 'Full Body Detox', category: 'services', videoUrl: '/assets/videos/gallery/full-body-detox.mp4' },
+  { id: 'spa-rooms', title: 'Spa Rooms & Facility Tour', category: 'facility', videoUrl: '/assets/videos/gallery/spa-rooms.mp4' },
+  { id: 'lagos-walkthrough', title: 'Lagos Sanctuary Walkthrough', category: 'facility', videoUrl: '/assets/videos/gallery/lagos-walkthrough.mp4' },
+  { id: 'operational-hours', title: 'We Are Open', category: 'facility', videoUrl: '/assets/videos/gallery/operational-hours.mp4' },
+  { id: 'ceo-training-talk', title: 'CEO Training Talk', category: 'training', videoUrl: '/assets/videos/gallery/ceo-training-talk.mp4', hasNarration: true },
+  { id: 'abuja-training-highlight', title: 'Abuja Training Highlight', category: 'training', videoUrl: '/assets/videos/gallery/abuja-training-highlight.mp4', hasNarration: true },
 ];
 
 interface TeamMember {
@@ -86,10 +86,10 @@ interface TeamMember {
 }
 
 const teamData: TeamMember[] = [
-  { id: 'therapist-1', name: 'Senior Massage Therapist', role: 'Deep Tissue & Swedish Massage', imageUrl: '/src/assets/images/team/therapist-1.jpg' },
-  { id: 'therapist-2', name: 'Lead Spa Therapist', role: 'Hot Stone & Aromatherapy', imageUrl: '/src/assets/images/team/therapist-2.jpg' },
-  { id: 'therapist-3', name: 'Skincare & Facial Specialist', role: 'Facials, Waxing & Skin Treatments', imageUrl: '/src/assets/images/team/therapist-3.jpg' },
-  { id: 'therapist-4', name: 'Wellness Therapist', role: 'Full Body Detox & Reflexology', imageUrl: '/src/assets/images/team/therapist-4.jpg' },
+  { id: 'therapist-1', name: 'Senior Massage Therapist', role: 'Deep Tissue & Swedish Massage', imageUrl: '/assets/images/team/therapist-1.jpg' },
+  { id: 'therapist-2', name: 'Lead Spa Therapist', role: 'Hot Stone & Aromatherapy', imageUrl: '/assets/images/team/therapist-2.jpg' },
+  { id: 'therapist-3', name: 'Skincare & Facial Specialist', role: 'Facials, Waxing & Skin Treatments', imageUrl: '/assets/images/team/therapist-3.jpg' },
+  { id: 'therapist-4', name: 'Wellness Therapist', role: 'Full Body Detox & Reflexology', imageUrl: '/assets/images/team/therapist-4.jpg' },
 ];
 
 export default function App() {
@@ -388,7 +388,7 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-6 flex items-center justify-between">
           <a href="#" className="flex items-center group flex-shrink-0">
             <img
-              src="/src/assets/images/smm_logo_cropped.png"
+              src="/assets/images/smm_logo_cropped.png"
               alt="SMM (Sweet Mobile Massage and Spa)"
               className="h-[70px] sm:h-20 lg:h-[88px] w-auto object-contain flex-shrink-0"
             />
@@ -437,7 +437,7 @@ export default function App() {
           }`}
         >
           <img
-            src="/src/assets/images/spa_hero_banner_1783345955168.jpg"
+            src="/assets/images/spa_hero_banner_1783345955168.jpg"
             alt="SMM (Sweet Mobile Massage and Spa) Treatment Sanctuary"
             className="absolute inset-0 w-full h-full object-cover scale-105 select-none brightness-[0.80] contrast-[1.05]"
             referrerPolicy="no-referrer"
@@ -504,7 +504,7 @@ export default function App() {
           }`}
         >
           <img
-            src="/src/assets/images/smm_promo_tension_to_tranquility.webp"
+            src="/assets/images/smm_promo_tension_to_tranquility.webp"
             alt="SMM Sweet Mobile Massage and Spa promotional campaign: From Tension to Tranquility"
             className="absolute inset-0 w-full h-full object-cover object-[center_65%] select-none"
             referrerPolicy="no-referrer"
@@ -527,7 +527,7 @@ export default function App() {
           }`}
         >
           <img
-            src="/src/assets/images/hero-slide-2.jpg"
+            src="/assets/images/hero-slide-2.jpg"
             alt="SMM Sweet Mobile Massage and Spa promotional campaign: Relax Your Body, Calm Your Mind, Renew Your Spirit"
             className="absolute inset-0 w-full h-full object-cover object-[52%_58%] sm:object-[center_62%] select-none"
             referrerPolicy="no-referrer"
@@ -604,12 +604,12 @@ export default function App() {
                   playsInline
                   className="w-full h-[400px] object-cover rounded-sm filter brightness-95"
                 >
-                  <source src="/src/assets/videos/walk-in-spa.mp4" type="video/mp4" />
+                  <source src="/assets/videos/walk-in-spa.mp4" type="video/mp4" />
                 </video>
               </div>
               <div className="absolute -bottom-8 -right-8 w-1/2 hidden md:block border border-spa-taupe p-2 bg-white shadow-2xl rounded-sm z-20">
                 <img
-                  src="/src/assets/images/front-desk-sign.jpg"
+                  src="/assets/images/front-desk-sign.jpg"
                   alt="SMM Spa And Massage front desk signage - Sweet Mobile Massage"
                   className="w-full h-48 object-cover object-center rounded-sm"
                   referrerPolicy="no-referrer"

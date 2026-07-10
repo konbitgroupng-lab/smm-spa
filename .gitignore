@@ -7,5 +7,7 @@ coverage/
 .env*
 !.env.example
 # Unused intermediate files / separate export artifact - not part of the deployed app
-src/assets/videos/raw/
+public/assets/videos/raw/
 ghl-export/
+
+.vercel
