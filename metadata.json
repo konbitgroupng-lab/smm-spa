@@ -1,0 +1,6 @@
+{
+  "name": "SMM (Sweet Mobile Massage and Spa)",
+  "description": "A tranquil boutique wellness website featuring an interactive appointment booking flow, curated service menus, and a serene gallery.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,62 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Poppins:wght@400;500;600&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-serif: "Playfair Display", "Georgia", serif;
+  --font-sans: "Poppins", "Inter", ui-sans-serif, system-ui, sans-serif;
+
+  --color-spa-cream: #faf8f5;
+  --color-spa-linen: #f5f1eb;
+  --color-spa-taupe: #e8dfd8;
+  --color-spa-gold: #f4c430;
+  --color-spa-gold-dark: #7a6218;
+  --color-spa-charcoal: #1a1a1a;
+  --color-spa-clay: #8a6a5e;
+
+  /* Brand flyer palette */
+  --color-spa-terracotta: #cb9873;
+  --color-spa-mauve: #c97a94;
+  --color-spa-berry: #8b3a63;
+  --color-spa-blush: #f3afc9;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--color-spa-cream);
+  color: var(--color-spa-charcoal);
+  font-family: var(--font-sans);
+}
+
+/* Smooth custom styling */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-spa-cream);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-spa-taupe);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-spa-gold);
+}
+
+/* Brand flyer gradient - hero background and low-opacity section washes */
+.brand-gradient {
+  background: linear-gradient(160deg, #CB9873 0%, #C97A94 50%, #8B3A63 100%);
+}
+
+/* Footer logo: the header's gold/black SMM badge, recolored via mask into the blush-to-plum palette.
+   Uses a mask-specific asset with alpha graded by original luminance, so the badge disc and the
+   "SMM" linework still read as distinct shades once flattened to a single gradient fill. */
+.footer-logo {
+  display: inline-block;
+  aspect-ratio: 194 / 150;
+  background: linear-gradient(135deg, #F3AFC9 0%, #C97A94 50%, #8B3A63 100%);
+  -webkit-mask: url('/src/assets/images/smm_logo_mask.png') center / contain no-repeat;
+  mask: url('/src/assets/images/smm_logo_mask.png') center / contain no-repeat;
+}
