@@ -1,15 +1,15 @@
 # Development guide
 
-SMM is a React 19 + Vite + Tailwind site backed by Supabase (Postgres, Auth, Row Level Security, Storage). This guide covers the Phase 1 foundation: what exists, how to run it, and the rules the rest of the build relies on.
+SMM is a React 19 + Vite + Tailwind site backed by Supabase (Postgres, Auth, Row Level Security, Storage, Edge Functions). This guide covers Phases 1-2: what exists, how to run it, and the rules the rest of the build relies on.
 
 ## Current state
 
 | Area | Status |
 | --- | --- |
 | Public site (`src/App.tsx`) | Unchanged. Still renders static content from `src/data.ts` and the placeholder Calendly widget. |
-| Database schema, RLS, storage bucket | Done, as migrations in `supabase/migrations/`. |
+| Database schema, RLS, storage bucket | Done (Phase 1), as migrations in `supabase/migrations/`. |
 | Data-access layer (`src/services/`) | Done. Not yet wired into the page components (Phase 4). |
-| Availability engine, public hold endpoint | Phase 2. |
+| Availability engine, validated holds, public `booking` endpoint | Done (Phase 2). |
 | Payments (Paystack behind a `PaymentGateway` interface) | Phase 3. |
 | Booking funnel, admin dashboard, CMS screens | Phases 4-6. |
 
@@ -75,7 +75,48 @@ Each hold and appointment stores `starts_at`, `ends_at` and `blocked_until` (end
 
 A hold lasts `business_settings.hold_minutes` (10). Once `expires_at` passes it stops blocking immediately; `release_expired_booking_holds()` only tidies up. An appointment created from a hold carries `hold_id`, so its own hold does not block it.
 
-`create_booking_hold()` is callable by `service_role` only. It does not yet check the slot against opening hours or shifts; Phase 2 adds that and the public entry point.
+`create_booking_hold()` is the low-level reservation: it skips the schedule rules below and is callable by `service_role` only (intended for staff overrides in the dashboard). Guests always go through `request_booking_hold()`.
+
+### Availability and guest holds
+
+`private.slot_block_reason()` is the single rule set. A therapist can take a slot only if it:
+
+- starts on the booking grid (`slot_interval_minutes`, counted from local midnight),
+- is at least `min_lead_minutes` away and within `max_advance_days`,
+- starts and ends inside opening hours on one day, outside any blackout,
+- lies inside one of the therapist's shifts, clear of breaks and time off,
+- does not overlap a live appointment or unexpired hold, buffers included.
+
+Day and time rules are evaluated in `business_settings.timezone`.
+
+| Function | Caller | Purpose |
+| --- | --- | --- |
+| `get_available_slots(service, date, therapist?)` | Guests (read-only) | Free start times for a local date, per therapist |
+| `request_booking_hold(service, starts_at, therapist?, location, zone, replace_token?)` | Edge Function | Validates with the rule set, then reserves. No therapist given: the free therapist with the fewest appointments that day, then display order. `replace_token` releases the guest's previous hold in the same transaction. |
+| `attach_customer_to_hold(token, name, email, phone)` | Edge Function | Adds guest details. A known email links to the existing customer without changing it. |
+| `release_booking_hold(token)` | Edge Function | Guest gives the slot back |
+| `consume_rate_limit(key, limit, window)` | Edge Function | Fixed-window counter in `private.rate_limit_hits` |
+| `run_booking_maintenance()` | pg_cron, every minute | Marks expired holds, prunes old counters |
+
+`request_booking_hold` raises `slot_unavailable` (SQLSTATE `23P01`) with the reason in `DETAIL`: `slot_taken`, `off_grid`, `too_soon`, `too_far`, `outside_business_hours`, `blackout`, `outside_shift`, `on_break`, `time_off`.
+
+### The `booking` Edge Function
+
+`supabase/functions/booking/` is the only public way to reserve a slot. `handler.ts` holds the logic (Web-standard APIs only, so it is unit-tested in Node); `index.ts` is the Deno entry point.
+
+`POST` a JSON body with an `action`:
+
+| Action | Fields | Success |
+| --- | --- | --- |
+| `create_hold` | `serviceId`, `startsAt`, optional `therapistId`, `locationType`, `dispatchZoneId`, `replaceHoldToken` | `{ hold }` |
+| `attach_customer` | `holdToken`, `fullName`, `email`, `phone` | `{ hold }` |
+| `release_hold` | `holdToken` | `{ released }` |
+
+A `hold` contains `token`, `therapistId`, `startsAt`, `endsAt`, `expiresAt`, `hasCustomer` and nothing else. Errors are `{ error, reason? }` with status 400 (`invalid_request`), 409 (`slot_unavailable`), 410 (`hold_expired`), 422 (`service_unavailable`, `therapist_unavailable`, `dispatch_zone_required`, `invalid_customer`), 429 (`rate_limited`) or 500 (`server_error`, no detail).
+
+Limits per visitor per 10 minutes: 10 hold attempts, 30 of each other action. The visitor key is a salted hash of the IP address.
+
+Function secrets: `ALLOWED_ORIGINS` (comma-separated site origins for CORS) and `RATE_LIMIT_SALT`. Serve locally with `npx supabase functions serve booking`; deploy with `npx supabase functions deploy booking`.
 
 ## Authentication and authorization
 
@@ -103,6 +144,7 @@ One public bucket, `site-media` (5 MB limit; JPEG, PNG, WebP, AVIF), with folder
 - `catalogService`, `contentService`: public reads. They return the same shapes as `src/data.ts`, and fall back to that static content when Supabase is not configured.
 - `authService`: staff sign-in, sign-out, password reset, current profile.
 - `appointmentsService`: staff reads of appointments and customers; admin customer creation.
+- `bookingService`: guest availability (`getAvailableSlots`) and hold actions through the `booking` function. Failures throw `BookingError` with the codes above.
 
 `localStorage` must not become a source of truth for any of this. The in-page booking form in `src/App.tsx` still saves to `localStorage`; it is replaced in Phase 4.
 
@@ -119,8 +161,25 @@ One public bucket, `site-media` (5 MB limit; JPEG, PNG, WebP, AVIF), with folder
 | `tests/db/foundation.test.ts` | Migrations apply, RLS on every table, profile trigger, role helpers, per-role access, customer and appointment creation, storage policies |
 | `tests/db/booking.test.ts` | Hold creation, overlap prevention (hold/hold, hold/appointment, appointment/appointment, buffer), expired holds |
 | `tests/services/catalog.test.ts` | Money formatting, static fallback, database rows mapped to site shapes |
+| `tests/db/availability.test.ts` | Slot listing against every rule, validated holds, therapist assignment, hold replacement, customer details, rate limiting, maintenance |
+| `tests/functions/booking-handler.test.ts` | The endpoint handler against the real database functions: validation, status codes, rate limiting, CORS, no leaked internals |
+| `tests/db/concurrency.test.ts` | 24 simultaneous connections on a real PostgreSQL 18 server (`embedded-postgres`): one winner per slot, no deadlocks, no overlaps |
 
-Limits: PGlite is a single connection, so the tests prove the constraints reject conflicts but do not exercise truly simultaneous transactions. Supabase Auth itself (login, password reset emails) and real Storage uploads are not covered; check those against a local or hosted Supabase project.
+Limits: Supabase Auth itself (login, password reset emails), real Storage uploads, the Deno entry point `index.ts`, the pg_cron schedule and PostgREST's handling of the RPC calls are not covered; check those against a local or hosted Supabase project.
+
+## Open issues carried forward
+
+Decide or fix these in the booking-funnel and payment phases:
+
+- **Mobile travel time.** A mobile appointment blocks only the service duration and the normal turnover buffer; no extra travel time is reserved. Needs the client's input.
+- **Returning customer emails.** A guest whose email matches an existing customer is linked to that record. The name and phone they entered are not stored on the booking, so the appointment shows the older contact details.
+- **A guest's own hold hides its slot.** While a guest holds a time, the availability listing shows that time as taken, including to that guest.
+- **Rate limiting is per IP address.** Visitors sharing one network share a limit. The limits are constants in `supabase/functions/booking/handler.ts`.
+- **`embedded-postgres` is a development/test-only dependency.** It downloads PostgreSQL binaries and is never part of the deployed site.
+- **Site content.** The live page still shows testimonials with realistic names, therapist star ratings and a street address that the client has not verified.
+- **Legacy booking form.** The in-page form in `src/App.tsx` still saves bookings to `localStorage` (`everest_bookings`).
+- **Paystack eligibility.** The client's merchant account has not been confirmed.
+- **Intake data retention.** Access is restricted by RLS, but nothing deletes intake answers automatically.
 
 ## Going to a hosted Supabase project
 
@@ -133,5 +192,6 @@ Limits: PGlite is a single connection, so the tests prove the constraints reject
    where id = (select id from auth.users where email = 'owner@their-domain');
    ```
 
-4. Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in Vercel. The service-role key is not needed by the site.
-5. Regenerate types once the project exists: `npx supabase gen types typescript --linked > src/lib/database.types.ts`.
+4. Deploy the function and its secrets: `npx supabase functions deploy booking`, then `npx supabase secrets set ALLOWED_ORIGINS=https://<site> RATE_LIMIT_SALT=<random>`. Confirm the `booking-maintenance` job exists under Integrations > Cron.
+5. Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in Vercel. The service-role key is not needed by the site.
+6. Regenerate types once the project exists: `npx supabase gen types typescript --linked > src/lib/database.types.ts`.
