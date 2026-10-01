@@ -1,20 +1,11 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# SMM (Sweet Mobile Massage and Spa)
 
-# Run and deploy your AI Studio app
+Website and booking platform. React 19 + TypeScript + Vite + Tailwind on the frontend; Supabase (Postgres, Auth, Row Level Security, Storage) as the backend.
 
-This contains everything you need to run your app locally.
+```bash
+npm install
+npm run dev    # http://localhost:3000
+npm test
+```
 
-View your app in AI Studio: https://ai.studio/apps/dddd8076-b8a5-47d5-aee4-33b850665c01
-
-## Run Locally
-
-**Prerequisites:**  Node.js
-
-
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+The site runs without any configuration, on static content. To connect a database, see [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
