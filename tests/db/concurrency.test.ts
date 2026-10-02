@@ -1,36 +1,19 @@
-import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
-import { createServer } from 'node:net';
-import { tmpdir } from 'node:os';
-import path from 'node:path';
-import EmbeddedPostgres from 'embedded-postgres';
-import pg from 'pg';
+import type pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { startRealPostgres, type RealPostgres } from '../support/real-postgres';
 import { at, upcoming, MON, THU, TUE, WED } from './dates';
 
 // The other database tests run on a single connection. These run the same
 // migrations on a real PostgreSQL server and fire many requests at once from
 // separate connections, to prove that simultaneous guests cannot double-book.
 
-const root = path.resolve(__dirname, '../..');
 const CLIENTS = 24;
 
-let server: EmbeddedPostgres;
+let database: RealPostgres;
 let pool: pg.Pool;
-let dataDir: string;
 let swedish: string;
 let therapists: string[];
 let customerId: string;
-
-function freePort(): Promise<number> {
-  return new Promise((resolve, reject) => {
-    const probe = createServer();
-    probe.once('error', reject);
-    probe.listen(0, '127.0.0.1', () => {
-      const { port } = probe.address() as { port: number };
-      probe.close(() => resolve(port));
-    });
-  });
-}
 
 /** Runs every query at the same moment, each on its own connection. */
 async function race(queries: { sql: string; params: unknown[] }[]) {
@@ -65,37 +48,8 @@ async function overlappingPairs(): Promise<number> {
 }
 
 beforeAll(async () => {
-  dataDir = mkdtempSync(path.join(tmpdir(), 'smm-pg-'));
-  const port = await freePort();
-  server = new EmbeddedPostgres({
-    databaseDir: dataDir,
-    user: 'postgres',
-    password: 'postgres',
-    port,
-    persistent: false,
-    initdbFlags: ['--encoding=UTF8', '--locale=C'], // Windows would otherwise default to WIN1252
-    onLog: () => {},
-  });
-  await server.initialise();
-  await server.start();
-  await server.createDatabase('smm_test');
-
-  pool = new pg.Pool({ host: '127.0.0.1', port, user: 'postgres', password: 'postgres', database: 'smm_test', max: CLIENTS });
-  await pool.query(`alter database smm_test set search_path = public, extensions`);
-
-  const setup = await pool.connect();
-  try {
-    await setup.query(`set search_path = public, extensions`);
-    await setup.query(readFileSync(path.join(__dirname, 'supabase-shim.sql'), 'utf8'));
-    const migrations = path.join(root, 'supabase/migrations');
-    for (const file of readdirSync(migrations).sort()) {
-      await setup.query(readFileSync(path.join(migrations, file), 'utf8'));
-    }
-    await setup.query(readFileSync(path.join(root, 'supabase/seed.sql'), 'utf8'));
-    await setup.query(`delete from appointments`);
-  } finally {
-    setup.release();
-  }
+  database = await startRealPostgres(CLIENTS);
+  pool = database.pool;
 
   swedish = (await pool.query(`select id from services where slug = 'swedish'`)).rows[0].id;
   therapists = (await pool.query(`select id from therapists order by sort_order`)).rows.map((r) => r.id);
@@ -103,9 +57,7 @@ beforeAll(async () => {
 }, 180_000);
 
 afterAll(async () => {
-  await pool?.end();
-  await server?.stop();
-  if (dataDir) rmSync(dataDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 300 });
+  await database?.stop();
 });
 
 describe('simultaneous booking attempts (real PostgreSQL, separate connections)', () => {

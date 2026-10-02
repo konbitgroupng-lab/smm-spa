@@ -444,6 +444,51 @@ describe('paystack webhook', () => {
     expect(paystack.requests.slice(requestsBefore).filter((r) => r.includes('/refund'))).toEqual([]);
   });
 
+  it('records refund.needs-attention, idempotently, and a later processed event still completes the refund', async () => {
+    const { reference } = await started();
+    paystack.pay(reference);
+    await verify(reference);
+    const event = (name: string, status: string) =>
+      paystack.webhook(name, { status, transaction_reference: reference, refund_reference: 'RF-300', amount: PRICE, currency: 'NGN', merchant_note: 'Bank could not process' });
+
+    const attention = event('refund.needs-attention', 'needs-attention');
+    const first = await webhook(attention);
+    expect(first.status).toBe(200);
+    expect(await first.json()).toEqual({ received: true, result: 'refund_recorded' });
+    const flagged = await payment(reference);
+    expect(flagged).toMatchObject({ refund_status: 'needs_attention', refund_reference: 'RF-300', refund_error: 'Bank could not process', status: 'succeeded' });
+    expect(Number(flagged.refunded_minor)).toBe(0);
+    expect(Number(flagged.refundable_minor)).toBe(PRICE);
+    const requestedAt = flagged.refund_requested_at;
+
+    // The same delivery again, twice: acknowledged, nothing changes.
+    for (let i = 0; i < 2; i++) expect(await (await webhook(attention)).json()).toEqual({ received: true, duplicate: true });
+    const after = await payment(reference);
+    expect(after).toMatchObject({ refund_status: 'needs_attention', refund_error: 'Bank could not process' });
+    expect(after.refund_requested_at).toEqual(requestedAt);
+    expect(await rows(db, `select id from payment_events where event_id = 'refund.needs-attention:RF-300'`)).toHaveLength(1);
+
+    // Once Paystack resolves it, the refund completes and the error is cleared.
+    await webhook(event('refund.processed', 'processed'));
+    const done = await payment(reference);
+    expect(done).toMatchObject({ refund_status: 'processed', status: 'refunded', refund_error: null });
+    expect(Number(done.refunded_minor)).toBe(PRICE);
+  });
+
+  it('does not book when a scheduling rule changed after the slot was held', async () => {
+    const start = nextSlot();
+    const viaVerify = await started(await readyHold(start));
+    const { id } = await one(db, `insert into therapist_time_off (therapist_id, starts_at, ends_at) values ($1, $2, $3) returning id`, [
+      A, start.toISOString(), new Date(start.getTime() + 3_600_000).toISOString(),
+    ]);
+    paystack.pay(viaVerify.reference);
+    expect(await verify(viaVerify.reference)).toMatchObject({ status: 'refund_required', reason: 'schedule_changed', appointment: null });
+    expect((await (await webhook(paystack.chargeSuccessWebhook(viaVerify.reference))).json()).result).toBe('refund_required');
+    expect(await payment(viaVerify.reference)).toMatchObject({ needs_refund: true, needs_refund_reason: 'schedule_changed', needs_refund_detail: 'time_off' });
+    expect(await appointmentsFor(viaVerify.hold.id)).toEqual([]);
+    await db.query(`delete from therapist_time_off where id = $1`, [id]);
+  });
+
   it('acknowledges events it has no use for, and transactions it did not start', async () => {
     const other = await webhook(paystack.webhook('transfer.success', { id: 555, reference: 'TRF-1' }));
     expect(await other.json()).toEqual({ received: true, result: 'ignored' });

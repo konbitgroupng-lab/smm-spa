@@ -161,7 +161,7 @@ export class PaystackAdapter implements PaymentGateway {
       return { kind: 'charge_success', eventType, eventId: `${eventType}:${data.id ?? reference}`, reference, summary };
     }
 
-    if (['refund.pending', 'refund.processing', 'refund.processed', 'refund.failed'].includes(eventType)) {
+    if (['refund.pending', 'refund.processing', 'refund.processed', 'refund.failed', 'refund.needs-attention'].includes(eventType)) {
       const transactionReference = str(data.transaction_reference);
       if (!transactionReference) throw new Error('malformed webhook');
       const refundReference = str(data.refund_reference);

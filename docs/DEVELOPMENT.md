@@ -124,7 +124,15 @@ Function secrets: `ALLOWED_ORIGINS` (comma-separated site origins for CORS) and 
 
 `public.record_payment_result()` is the only code that can turn a payment into an appointment. The browser-triggered `verify` call and the Paystack webhook both end there, and both pass it what Paystack's verify API reported, never what the browser or the webhook body claimed. In one transaction it either attaches the payment to a new confirmed appointment or flags the payment as needing a refund.
 
-Lock order, wherever more than one lock is taken: therapist advisory lock, then the `booking_holds` row, then the `payments` row.
+Lock order, wherever more than one lock is taken: schedule-rules lock, then the therapist advisory lock, then the `booking_holds` row, then the `payments` row.
+
+### Scheduling rules are re-checked at payment time
+
+Before creating the appointment, `record_payment_result()` runs the same rule set as availability (`private.slot_block_reason`) against the rules as they are now: opening hours, shifts, breaks, time off, blackout dates, minimum notice, booking window, grid and other reservations. It also checks that the service is still active with the same duration and buffer, and that the therapist is still active and offers it.
+
+- Minimum notice and the booking window are measured from when the booking was made. For a live hold that is the hold's creation time, so a guest is not refused because minutes passed while they paid. A hold that has lapsed counts as a new booking made at payment time.
+- The payer's own hold never blocks its own slot.
+- There is no gap between the check and the insert. Every statement that changes a rule table (`business_settings`, `business_hours`, `blackout_dates`, `therapist_schedules`, `therapist_breaks`, `therapist_time_off`, `services`, `therapists`, `therapist_services`) takes the schedule-rules advisory lock exclusively through a trigger. `record_payment_result()` holds it in shared mode from before the check until commit. A rule change therefore either commits first and is seen, or waits until the appointment exists and is visible to whoever made the change.
 
 ### Flow
 
@@ -154,10 +162,13 @@ A succeeded payment has either `appointment_id` set, or `needs_refund = true` wi
 | `amount_mismatch`, `currency_mismatch` | The provider reports something other than what the database expected |
 | `duplicate_payment` | Another payment already booked this hold |
 | `hold_missing` | The hold no longer exists |
+| `schedule_changed` | A scheduling rule no longer allows the slot. `needs_refund_detail` names it: `time_off`, `blackout`, `on_break`, `outside_shift`, `outside_business_hours`, `too_soon`, `too_far`, `off_grid` |
+| `service_changed` | The service was withdrawn (`inactive`) or its duration or buffer changed (`duration`) after the slot was held |
+| `therapist_unavailable` | The therapist was deactivated or no longer offers the service |
 
 A late payment is still honoured when the slot is free: the insert goes through the same exclusion constraints and guard triggers as every other reservation, so it can never displace one.
 
-Refunds are recorded, never initiated. Paystack's `refund.pending`, `refund.processing`, `refund.processed` and `refund.failed` events update `refund_status` (`none`, `pending`, `processing`, `processed`, `failed`, `needs_attention`), `refund_reference`, `refund_reason`, `refund_error`, the refund timestamps and `refunded_minor`. `refundable_minor` is what is left to refund. `paid_minor`, `paid_currency` and `provider_transaction_id` hold what Paystack reported for the original charge.
+Refunds are recorded, never initiated. Paystack's `refund.pending`, `refund.processing`, `refund.processed`, `refund.failed` and `refund.needs-attention` events update `refund_status` (`none`, `pending`, `processing`, `processed`, `failed`, `needs_attention`), `refund_reference`, `refund_reason`, `refund_error`, the refund timestamps and `refunded_minor`. `refundable_minor` is what is left to refund. `paid_minor`, `paid_currency` and `provider_transaction_id` hold what Paystack reported for the original charge.
 
 ### Webhook handling
 
@@ -229,7 +240,8 @@ One public bucket, `site-media` (5 MB limit; JPEG, PNG, WebP, AVIF), with folder
 | `tests/db/payments.test.ts` | The payment state machine: amounts, deposit, hold extension, success, failure, retry, abandonment, mismatches, late payments, refund events, privileges |
 | `tests/functions/paystack-adapter.test.ts` | The Paystack adapter against a simulated Paystack (`tests/support/fake-paystack.ts`): initialize, verify, signatures, event parsing |
 | `tests/functions/payments-handler.test.ts` | The `payments` and `paystack-webhook` handlers end to end: database, adapter and simulated Paystack |
-| `tests/db/payments-concurrency.test.ts` | Payment races on real PostgreSQL: duplicate webhooks, webhook against verify, late payment against a new guest |
+| `tests/db/payments-concurrency.test.ts` | Payment races on real PostgreSQL: duplicate webhooks, webhook against verify, late payment against a new guest, rule changes in progress |
+| `tests/db/payment-schedule.test.ts` | Each scheduling rule changed after a hold: the paid hold is refused with the rule named; unrelated changes and time passing are not |
 
 Limits: Supabase Auth itself (login, password reset emails), real Storage uploads, the Deno entry point `index.ts`, the pg_cron schedule and PostgREST's handling of the RPC calls are not covered; check those against a local or hosted Supabase project.
 
@@ -242,7 +254,8 @@ Decide or fix these in the booking-funnel and payment phases:
 - **Refunds are manual.** Payments flagged `needs_refund` must be refunded by the owner in the Paystack dashboard; the resulting Paystack events update the record. Nothing alerts staff to a flagged payment until the Phase 5 dashboard exists.
 - **Several partial refunds.** Each payment stores one refund reference and a running total; a per-refund history table is left for the refund workflow.
 - **Deposit balances.** A deposit confirms the booking; collecting the remainder is not handled online.
-- **Schedule changes after a hold.** At payment time only the slot itself is re-checked (other reservations, start time not passed), not shifts or time off added after the hold was made.
+- **Rule changes and unpaid holds.** A rule change is always caught when the hold is paid for. Creating a hold (`request_booking_hold`) does not take the schedule-rules lock, so a hold can be created in the same instant a rule changes; it then fails at payment and the payment is flagged for refund.
+- **Price changes after payment starts.** The price is fixed when payment starts; a later catalogue price change does not affect that booking.
 - **Staff view of contact details.** Appointments now keep the name and phone typed for that booking (`contact_name`, `contact_phone`); `appointmentsService` does not show them yet.
 - **A guest's own hold hides its slot.** While a guest holds a time, the availability listing shows that time as taken, including to that guest.
 - **Rate limiting is per IP address.** Visitors sharing one network share a limit. The limits are constants in `supabase/functions/booking/handler.ts`.

@@ -146,6 +146,7 @@ describe('Paystack adapter: webhook parsing', () => {
     ['refund.processing', 'processing'],
     ['refund.processed', 'processed'],
     ['refund.failed', 'failed'],
+    ['refund.needs-attention', 'needs-attention'],
   ])('recognises Paystack refund event %s', (eventType, status) => {
     const event = adapter.parseWebhook(
       JSON.stringify({ event: eventType, data: { status, transaction_reference: 'PARSE-2', refund_reference: 'RF-9', amount: '1500000', currency: 'NGN', merchant_note: 'Slot unavailable' } }),

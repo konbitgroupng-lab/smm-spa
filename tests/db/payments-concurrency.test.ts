@@ -201,6 +201,115 @@ describe('payment races (real PostgreSQL, separate connections)', () => {
     expect(await overlappingPairs()).toBe(0);
   });
 
+  it('a rule change that is still in progress makes the payment wait, then is seen by it', async () => {
+    const start = nextSlot();
+    const { hold, reference } = await started(start);
+
+    const admin = await pool.connect();
+    let outcome: any;
+    try {
+      await admin.query('begin');
+      await admin.query(`insert into therapist_time_off (therapist_id, starts_at, ends_at) values ($1, $2, $3)`, [
+        A, start.toISOString(), new Date(start.getTime() + 3_600_000).toISOString(),
+      ]);
+
+      // The time off is not committed yet. The payment must neither book past it nor guess.
+      let settled = false;
+      const paying = recordSuccess(reference).then((r) => {
+        settled = true;
+        return r;
+      });
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      expect(settled).toBe(false);
+      expect(await appointmentsFor(hold.id)).toEqual([]);
+
+      await admin.query('commit');
+      outcome = (await paying).rows[0].r;
+    } finally {
+      await admin.query('rollback').catch(() => {});
+      admin.release();
+    }
+    expect(outcome).toMatchObject({ status: 'refund_required', reason: 'schedule_changed' });
+    expect(await appointmentsFor(hold.id)).toEqual([]);
+    await q(`delete from therapist_time_off`);
+  });
+
+  it('a rule change rolled back does not affect the waiting payment', async () => {
+    const start = nextSlot();
+    const { hold, reference } = await started(start);
+    const admin = await pool.connect();
+    let outcome: any;
+    try {
+      await admin.query('begin');
+      await admin.query(`update business_hours set is_closed = true`);
+      const paying = recordSuccess(reference);
+      await new Promise((resolve) => setTimeout(resolve, 800));
+      await admin.query('rollback');
+      outcome = (await paying).rows[0].r;
+    } finally {
+      admin.release();
+    }
+    expect(outcome.status).toBe('confirmed');
+    expect(await appointmentsFor(hold.id)).toHaveLength(1);
+  });
+
+  it('a payment that is still in progress makes the rule change wait until the appointment exists', async () => {
+    const start = nextSlot();
+    const { hold, reference } = await started(start);
+
+    const payer = await pool.connect();
+    let adminSettled = false;
+    try {
+      await payer.query('begin');
+      const result = await payer.query(`select record_payment_result('paystack', $1, 'success', $2, 'NGN', now(), 'TX', 'card') as r`, [reference, PRICE]);
+      expect(result.rows[0].r.status).toBe('confirmed'); // validated and inserted, not yet committed
+
+      const adminChange = pool
+        .query(`insert into therapist_time_off (therapist_id, starts_at, ends_at) values ($1, $2, $3)`, [A, start.toISOString(), new Date(start.getTime() + 3_600_000).toISOString()])
+        .then(() => {
+          adminSettled = true;
+        });
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      expect(adminSettled).toBe(false);
+
+      await payer.query('commit');
+      await adminChange;
+    } finally {
+      await payer.query('rollback').catch(() => {});
+      payer.release();
+    }
+    // The owner's change went through after the booking, which is visible to them.
+    expect(adminSettled).toBe(true);
+    expect(await appointmentsFor(hold.id)).toHaveLength(1);
+    await q(`delete from therapist_time_off`);
+  });
+
+  it('payments for different therapists do not wait for each other', async () => {
+    const start = nextSlot();
+    const therapists = (await q(`select id from therapists order by sort_order`)).map((r) => r.id);
+    const payers = [];
+    for (const therapist of therapists) {
+      const [hold] = await q(`select * from request_booking_hold($1, $2, $3)`, [swedish, start.toISOString(), therapist]);
+      await q(`select attach_customer_to_hold($1, 'Test Guest', $2, '+2348000000000')`, [hold.hold_token, `race${++guest}@example.com`]);
+      const [{ r }] = await q(`select begin_hold_payment($1, 'paystack', true) as r`, [hold.hold_token]);
+      payers.push({ hold, reference: r.reference });
+    }
+    // One payer's transaction stays open (holding the shared lock and its own therapist lock)...
+    const first = await pool.connect();
+    try {
+      await first.query('begin');
+      await first.query(`select record_payment_result('paystack', $1, 'success', $2, 'NGN', now(), 'TX', 'card')`, [payers[0].reference, PRICE]);
+      // ...and the others still complete.
+      const others = await Promise.all(payers.slice(1).map((p) => recordSuccess(p.reference)));
+      expect(others.map((r) => r.rows[0].r.status)).toEqual(['confirmed', 'confirmed', 'confirmed']);
+      await first.query('commit');
+    } finally {
+      await first.query('rollback').catch(() => {});
+      first.release();
+    }
+    for (const p of payers) expect(await appointmentsFor(p.hold.id)).toHaveLength(1);
+  });
+
   it('the Phase 2 guarantee still holds with payments in play: one slot, one hold', async () => {
     const start = nextSlot();
     const results = await Promise.allSettled(
