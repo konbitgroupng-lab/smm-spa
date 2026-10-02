@@ -1,6 +1,6 @@
 # Development guide
 
-SMM is a React 19 + Vite + Tailwind site backed by Supabase (Postgres, Auth, Row Level Security, Storage, Edge Functions). This guide covers Phases 1-2: what exists, how to run it, and the rules the rest of the build relies on.
+SMM is a React 19 + Vite + Tailwind site backed by Supabase (Postgres, Auth, Row Level Security, Storage, Edge Functions). This guide covers Phases 1-3: what exists, how to run it, and the rules the rest of the build relies on.
 
 ## Current state
 
@@ -10,7 +10,7 @@ SMM is a React 19 + Vite + Tailwind site backed by Supabase (Postgres, Auth, Row
 | Database schema, RLS, storage bucket | Done (Phase 1), as migrations in `supabase/migrations/`. |
 | Data-access layer (`src/services/`) | Done. Not yet wired into the page components (Phase 4). |
 | Availability engine, validated holds, public `booking` endpoint | Done (Phase 2). |
-| Payments (Paystack behind a `PaymentGateway` interface) | Phase 3. |
+| Payments (Paystack behind a `PaymentGateway` interface) | Done (Phase 3), tested against a simulated Paystack. Not yet run with real Paystack test credentials. |
 | Booking funnel, admin dashboard, CMS screens | Phases 4-6. |
 
 ## Quick start
@@ -118,6 +118,67 @@ Limits per visitor per 10 minutes: 10 hold attempts, 30 of each other action. Th
 
 Function secrets: `ALLOWED_ORIGINS` (comma-separated site origins for CORS) and `RATE_LIMIT_SALT`. Serve locally with `npx supabase functions serve booking`; deploy with `npx supabase functions deploy booking`.
 
+## Payments
+
+### The rule
+
+`public.record_payment_result()` is the only code that can turn a payment into an appointment. The browser-triggered `verify` call and the Paystack webhook both end there, and both pass it what Paystack's verify API reported, never what the browser or the webhook body claimed. In one transaction it either attaches the payment to a new confirmed appointment or flags the payment as needing a refund.
+
+Lock order, wherever more than one lock is taken: therapist advisory lock, then the `booking_holds` row, then the `payments` row.
+
+### Flow
+
+1. The guest holds a slot and adds their details (Phase 2).
+2. `payments` function, action `initialize`: `begin_hold_payment()` computes the amount from the catalogue and business settings (full, or the deposit percentage rounded up), snapshots the price on the hold, creates the `payments` row, and extends the hold once to `payment_window_minutes` (15). The function then creates the transaction at Paystack and returns the hosted checkout address.
+3. The guest pays on Paystack's page and is sent back with `?reference=...`.
+4. `payments` function, action `verify`, and/or the `paystack-webhook` function ask Paystack for the transaction and call `record_payment_result()`.
+
+### Payment status
+
+| Status | Meaning | Can become |
+| --- | --- | --- |
+| `initialized` | Record created, guest sent to checkout | `pending`, `succeeded`, `failed`, `abandoned` |
+| `pending` | Provider reports it in progress | `succeeded`, `failed`, `abandoned` |
+| `succeeded` | Provider confirmed the money | `partially_refunded`, `refunded` |
+| `failed` | Provider reported failure | `succeeded`, if the provider later confirms that reference |
+| `abandoned` | No result `payment_abandon_minutes` (30) after it started | `succeeded`, if a late payment arrives |
+| `partially_refunded`, `refunded` | Set from provider refund events | |
+
+A succeeded payment has either `appointment_id` set, or `needs_refund = true` with `needs_refund_reason`:
+
+| Reason | When |
+| --- | --- |
+| `slot_retaken` | The hold had expired and another reservation now has the slot |
+| `hold_released` | The guest released the hold, then paid, and the slot is gone |
+| `slot_passed` | The slot's start time has already passed |
+| `amount_mismatch`, `currency_mismatch` | The provider reports something other than what the database expected |
+| `duplicate_payment` | Another payment already booked this hold |
+| `hold_missing` | The hold no longer exists |
+
+A late payment is still honoured when the slot is free: the insert goes through the same exclusion constraints and guard triggers as every other reservation, so it can never displace one.
+
+Refunds are recorded, never initiated. Paystack's `refund.pending`, `refund.processing`, `refund.processed` and `refund.failed` events update `refund_status` (`none`, `pending`, `processing`, `processed`, `failed`, `needs_attention`), `refund_reference`, `refund_reason`, `refund_error`, the refund timestamps and `refunded_minor`. `refundable_minor` is what is left to refund. `paid_minor`, `paid_currency` and `provider_transaction_id` hold what Paystack reported for the original charge.
+
+### Webhook handling
+
+1. The signature (`x-paystack-signature`, HMAC-SHA512 of the raw body keyed with the secret key) is checked with a constant-time comparison. Anything else gets 401 and leaves no trace.
+2. The delivery is logged in `payment_events` under a unique key (event name plus transaction id or refund reference). Only non-sensitive fields are stored; the card authorization and customer details are dropped.
+3. For `charge.success`, the transaction is verified with Paystack and the result goes to `record_payment_result()`.
+4. The delivery is marked processed and answered with 200. If anything fails, the answer is 500 and the delivery stays unprocessed, so Paystack's retry processes it again.
+
+A repeat of an already processed delivery is acknowledged without doing anything. Simultaneous repeats are safe because `record_payment_result()` serialises on its locks and returns the existing outcome.
+
+### Functions and secrets
+
+| Function | Caller | Purpose |
+| --- | --- | --- |
+| `payments` (`initialize`, `verify`) | Guests | Start a payment; get its verified outcome (`confirmed`, `pending`, `failed`, `refund_required`) |
+| `paystack-webhook` | Paystack | Signed event receiver |
+
+`supabase/functions/_shared/payments/gateway.ts` defines `PaymentGateway`; `paystack.ts` implements it. Handlers use only the interface.
+
+`PAYSTACK_SECRET_KEY` is a function secret and nothing else: it is never in the database, the browser bundle or an admin screen. Test or live mode is read from the key (`sk_test_` / `sk_live_`) and stored on each payment as `is_test`. `business_settings.online_payment_enabled` must be true for payments to start.
+
 ## Authentication and authorization
 
 - Supabase Auth, email + password. Public sign-up is disabled: staff are invited, customers book as guests.
@@ -145,6 +206,7 @@ One public bucket, `site-media` (5 MB limit; JPEG, PNG, WebP, AVIF), with folder
 - `authService`: staff sign-in, sign-out, password reset, current profile.
 - `appointmentsService`: staff reads of appointments and customers; admin customer creation.
 - `bookingService`: guest availability (`getAvailableSlots`) and hold actions through the `booking` function. Failures throw `BookingError` with the codes above.
+- `paymentService`: `startPayment` and `verifyPayment` through the `payments` function. Only a `confirmed` outcome from `verifyPayment` means a booking exists.
 
 `localStorage` must not become a source of truth for any of this. The in-page booking form in `src/App.tsx` still saves to `localStorage`; it is replaced in Phase 4.
 
@@ -164,6 +226,10 @@ One public bucket, `site-media` (5 MB limit; JPEG, PNG, WebP, AVIF), with folder
 | `tests/db/availability.test.ts` | Slot listing against every rule, validated holds, therapist assignment, hold replacement, customer details, rate limiting, maintenance |
 | `tests/functions/booking-handler.test.ts` | The endpoint handler against the real database functions: validation, status codes, rate limiting, CORS, no leaked internals |
 | `tests/db/concurrency.test.ts` | 24 simultaneous connections on a real PostgreSQL 18 server (`embedded-postgres`): one winner per slot, no deadlocks, no overlaps |
+| `tests/db/payments.test.ts` | The payment state machine: amounts, deposit, hold extension, success, failure, retry, abandonment, mismatches, late payments, refund events, privileges |
+| `tests/functions/paystack-adapter.test.ts` | The Paystack adapter against a simulated Paystack (`tests/support/fake-paystack.ts`): initialize, verify, signatures, event parsing |
+| `tests/functions/payments-handler.test.ts` | The `payments` and `paystack-webhook` handlers end to end: database, adapter and simulated Paystack |
+| `tests/db/payments-concurrency.test.ts` | Payment races on real PostgreSQL: duplicate webhooks, webhook against verify, late payment against a new guest |
 
 Limits: Supabase Auth itself (login, password reset emails), real Storage uploads, the Deno entry point `index.ts`, the pg_cron schedule and PostgREST's handling of the RPC calls are not covered; check those against a local or hosted Supabase project.
 
@@ -172,7 +238,12 @@ Limits: Supabase Auth itself (login, password reset emails), real Storage upload
 Decide or fix these in the booking-funnel and payment phases:
 
 - **Mobile travel time.** A mobile appointment blocks only the service duration and the normal turnover buffer; no extra travel time is reserved. Needs the client's input.
-- **Returning customer emails.** A guest whose email matches an existing customer is linked to that record. The name and phone they entered are not stored on the booking, so the appointment shows the older contact details.
+- **Real Paystack not yet exercised.** Phase 3 was tested against a simulated Paystack. Before go-live, run it with the client's Paystack test key (see "Going to a hosted Supabase project") and confirm the response shapes match.
+- **Refunds are manual.** Payments flagged `needs_refund` must be refunded by the owner in the Paystack dashboard; the resulting Paystack events update the record. Nothing alerts staff to a flagged payment until the Phase 5 dashboard exists.
+- **Several partial refunds.** Each payment stores one refund reference and a running total; a per-refund history table is left for the refund workflow.
+- **Deposit balances.** A deposit confirms the booking; collecting the remainder is not handled online.
+- **Schedule changes after a hold.** At payment time only the slot itself is re-checked (other reservations, start time not passed), not shifts or time off added after the hold was made.
+- **Staff view of contact details.** Appointments now keep the name and phone typed for that booking (`contact_name`, `contact_phone`); `appointmentsService` does not show them yet.
 - **A guest's own hold hides its slot.** While a guest holds a time, the availability listing shows that time as taken, including to that guest.
 - **Rate limiting is per IP address.** Visitors sharing one network share a limit. The limits are constants in `supabase/functions/booking/handler.ts`.
 - **`embedded-postgres` is a development/test-only dependency.** It downloads PostgreSQL binaries and is never part of the deployed site.
@@ -192,6 +263,7 @@ Decide or fix these in the booking-funnel and payment phases:
    where id = (select id from auth.users where email = 'owner@their-domain');
    ```
 
-4. Deploy the function and its secrets: `npx supabase functions deploy booking`, then `npx supabase secrets set ALLOWED_ORIGINS=https://<site> RATE_LIMIT_SALT=<random>`. Confirm the `booking-maintenance` job exists under Integrations > Cron.
+4. Deploy the functions and their secrets: `npx supabase functions deploy booking payments paystack-webhook --use-api`, then `npx supabase secrets set ALLOWED_ORIGINS=https://<site> RATE_LIMIT_SALT=<random> PAYSTACK_SECRET_KEY=sk_test_...`. Confirm the `booking-maintenance` job exists under Integrations > Cron.
+   In the Paystack dashboard (Settings > API Keys & Webhooks), set the webhook URL to `https://<project-ref>.supabase.co/functions/v1/paystack-webhook`. Turn payments on with `update public.business_settings set online_payment_enabled = true`.
 5. Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in Vercel. The service-role key is not needed by the site.
 6. Regenerate types once the project exists: `npx supabase gen types typescript --linked > src/lib/database.types.ts`.

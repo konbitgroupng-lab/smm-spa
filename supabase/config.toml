@@ -419,3 +419,11 @@ enabled = true
 # require a user JWT; it rate-limits and validates every request itself.
 [functions.booking]
 verify_jwt = false
+
+# Public guest payment endpoint (start a payment, ask for its verified outcome).
+[functions.payments]
+verify_jwt = false
+
+# Called by Paystack, which authenticates with a signature over the request body.
+[functions.paystack-webhook]
+verify_jwt = false
