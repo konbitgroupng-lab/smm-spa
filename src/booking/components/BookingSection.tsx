@@ -72,8 +72,6 @@ export default function BookingSection({ preselectServiceId, catalogApi, funnelA
 
   return (
     <BookingFunnel
-      // A new preselection (from a "Book" button) starts a fresh funnel on that treatment.
-      key={preselectServiceId ?? 'none'}
       catalog={catalog.catalog}
       preselectServiceId={preselectServiceId}
       api={funnelApi}

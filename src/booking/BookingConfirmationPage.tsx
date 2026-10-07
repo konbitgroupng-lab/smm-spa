@@ -5,6 +5,7 @@ import DemoPaymentNotice from './components/DemoPaymentNotice';
 import { focusRing, PrimaryButton, SecondaryButton } from './components/ui';
 import { DEFAULT_TIMEZONE, formatDateLong, formatTime, localDateOf } from './dates';
 import { messageFor } from './messages';
+import { browser } from './navigation';
 import { forgetPendingPayment, recallPendingPayment, rememberPendingPayment } from './pendingPayment';
 
 // Where the payment provider sends the guest back (?view=payment-return&reference=...).
@@ -51,7 +52,7 @@ function Card({ icon, title, tone, children }: { icon: ReactNode; title: string;
 export default function BookingConfirmationPage({
   reference,
   api = { verifyPayment, startPayment },
-  navigate = (url: string) => window.location.assign(url),
+  navigate = browser.assign,
   timeZone = DEFAULT_TIMEZONE,
   pollEveryMs = POLL_EVERY_MS,
 }: {

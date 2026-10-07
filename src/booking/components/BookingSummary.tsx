@@ -77,7 +77,9 @@ export function StickySummaryBar({ funnel, currency, hidden = false }: { funnel:
   if (!item || hidden) return null;
   const amount = state.payment ? formatMoney(state.payment.amountMinor, state.payment.currency) : estimate ? formatMoney(estimate.totalMinor, currency) : '';
   return (
-    <div className="sticky bottom-0 z-10 border-t border-spa-taupe bg-white/95 px-4 py-3 backdrop-blur lg:hidden" data-testid="sticky-summary">
+    // Left padding keeps the content clear of the floating WhatsApp button
+    // (bottom-left of the screen), which overlaps this bar when it sticks.
+    <div className="sticky bottom-0 z-10 border-t border-spa-taupe bg-white/95 py-3 pl-24 pr-4 backdrop-blur lg:hidden" data-testid="sticky-summary">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold text-spa-charcoal">{item.name}</p>

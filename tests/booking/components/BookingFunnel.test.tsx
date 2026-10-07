@@ -3,7 +3,7 @@ import { act, cleanup, render, screen, waitFor, within } from '@testing-library/
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import BookingFunnel from '../../../src/booking/components/BookingFunnel';
-import { ApiError, makeApi, makeCatalog, makeHold, makePayment } from '../fixtures';
+import { ApiError, makeApi, makeCatalog, makeHold, makePayment, SWEDISH } from '../fixtures';
 
 // The funnel's screens, driven the way a guest would: by clicking and typing,
 // and by keyboard alone.
@@ -233,6 +233,22 @@ describe('navigation and focus', () => {
     expect(steps[1].getAttribute('aria-current')).toBe('step');
     await user.click(steps[0]);
     expect(document.activeElement).toBe(heading(/treatment & venue/i));
+  });
+
+  it('does not take focus (or scroll the page) on first display, even in React strict mode', async () => {
+    // Regression: strict mode runs effects twice; a render-counting guard let the
+    // second run focus the step heading, scrolling the page to the booking section.
+    const { StrictMode } = await import('react');
+    render(
+      <StrictMode>
+        <BookingFunnel catalog={makeCatalog()} callbackUrl={CALLBACK} api={makeApi()} navigate={vi.fn()} preselectServiceId={SWEDISH.dbId} />
+      </StrictMode>,
+    );
+    await new Promise((r) => setTimeout(r, 50));
+    expect(document.activeElement).toBe(document.body);
+    // ...but it still moves focus when the guest goes to the next step.
+    await userEvent.setup().click(nextButton(/next: therapist/i));
+    expect(document.activeElement).toBe(heading(/your therapist/i));
   });
 
   it('can be completed with the keyboard alone', async () => {

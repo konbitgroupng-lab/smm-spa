@@ -51,6 +51,51 @@ export async function startLocalBackend(db: PGlite, site: string): Promise<{ url
       return res.end(await response.text());
     }
 
+    // Table reads, as PostgREST serves them to the guest role: select=<columns>,
+    // <column>=eq.<value>, <column>=in.(a,b), order=<column>.asc|desc.
+    if (path.startsWith('/rest/v1/') && !path.startsWith('/rest/v1/rpc/') && req.method === 'GET') {
+      const table = path.slice('/rest/v1/'.length);
+      const query = new URL(req.url ?? '', 'http://local').searchParams;
+      const ident = /^[a-z_]+$/;
+      const columns = (query.get('select') ?? '*').split(',');
+      if (!ident.test(table) || !columns.every((c) => c === '*' || ident.test(c))) return res.writeHead(400, cors).end();
+      const where: string[] = [];
+      const params: unknown[] = [];
+      let order = '';
+      for (const [key, value] of query) {
+        if (key === 'select') continue;
+        if (key === 'order') {
+          const [column, direction = 'asc'] = value.split('.');
+          if (!ident.test(column)) return res.writeHead(400, cors).end();
+          order = ` order by ${column} ${direction === 'desc' ? 'desc' : 'asc'}`;
+        } else if (ident.test(key) && value.startsWith('eq.')) {
+          params.push(value.slice(3));
+          where.push(`${key}::text = $${params.length}`);
+        } else if (ident.test(key) && value.startsWith('in.(')) {
+          params.push(value.slice(4, -1).split(',').map((v) => v.replace(/^"|"$/g, '')));
+          where.push(`${key}::text = any($${params.length})`);
+        } else {
+          return res.writeHead(400, cors).end();
+        }
+      }
+      try {
+        const result = await asRole(db, 'anon', null, () =>
+          db.query(`select ${columns.join(', ')} from public.${table}${where.length ? ` where ${where.join(' and ')}` : ''}${order}`, params),
+        );
+        const rows = result.rows as any[];
+        const single = (req.headers.accept ?? '').includes('vnd.pgrst.object');
+        if (single && rows.length !== 1) {
+          res.writeHead(406, { ...cors, 'content-type': 'application/json' });
+          return res.end(JSON.stringify({ code: 'PGRST116', message: 'JSON object requested, multiple (or no) rows returned', details: `The result contains ${rows.length} rows`, hint: null }));
+        }
+        res.writeHead(200, { ...cors, 'content-type': 'application/json' });
+        return res.end(JSON.stringify(single ? rows[0] : rows));
+      } catch (err: any) {
+        res.writeHead(err.code === '42501' ? 401 : 400, { ...cors, 'content-type': 'application/json' });
+        return res.end(JSON.stringify({ code: err.code, message: err.message, details: err.detail ?? null, hint: null }));
+      }
+    }
+
     if (path.startsWith('/rest/v1/rpc/') && req.method === 'POST') {
       const fn = path.slice('/rest/v1/rpc/'.length);
       if (!/^[a-z_]+$/.test(fn)) return res.writeHead(400, cors).end();

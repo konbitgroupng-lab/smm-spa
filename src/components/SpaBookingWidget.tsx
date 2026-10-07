@@ -1,94 +1,56 @@
 import { useEffect, useState } from 'react';
 import { Calendar, X } from 'lucide-react';
-import { CALENDLY_OPENING_EVENT } from './widgetEvents';
+import { BOOKING_SECTION_ID, goToBooking } from '../booking/navigation';
 
-// TODO: replace with your real Calendly event URL, e.g. https://calendly.com/your-username/spa-appointments
-const CALENDLY_URL = 'https://calendly.com/your-spa-slug/spa-appointments';
-const AUTO_OPEN_DELAY = 2600;
-const SESSION_KEY = 'smm_calendly_auto_shown';
-const DISMISS_KEY = 'smm_calendly_dismissed';
+// Floating "Spa Appointments" shortcut: takes the guest to the online booking
+// section on this page. It hides while that section is on screen (where it
+// would only cover the booking steps), and can be dismissed for the visit.
+const DISMISS_KEY = 'smm_booking_widget_dismissed';
 
-declare global {
-  interface Window {
-    Calendly?: {
-      initPopupWidget: (options: { url: string }) => void;
-      closePopupWidget?: () => void;
-    };
+function wasDismissed(): boolean {
+  try {
+    return sessionStorage.getItem(DISMISS_KEY) === 'true';
+  } catch {
+    return false;
   }
 }
 
-function ensureCalendlyAssets(): Promise<void> {
-  return new Promise((resolve) => {
-    if (window.Calendly) {
-      resolve();
-      return;
-    }
-    if (!document.getElementById('calendly-widget-css')) {
-      const link = document.createElement('link');
-      link.id = 'calendly-widget-css';
-      link.rel = 'stylesheet';
-      link.href = 'https://assets.calendly.com/assets/external/widget.css';
-      document.head.appendChild(link);
-    }
-    const existingScript = document.getElementById('calendly-widget-js') as HTMLScriptElement | null;
-    if (existingScript) {
-      existingScript.addEventListener('load', () => resolve(), { once: true });
-      if (window.Calendly) resolve();
-      return;
-    }
-    const script = document.createElement('script');
-    script.id = 'calendly-widget-js';
-    script.src = 'https://assets.calendly.com/assets/external/widget.js';
-    script.async = true;
-    script.addEventListener('load', () => resolve(), { once: true });
-    document.body.appendChild(script);
-  });
-}
-
 export default function SpaBookingWidget() {
-  const [dismissed, setDismissed] = useState(() => sessionStorage.getItem(DISMISS_KEY) === 'true');
+  const [dismissed, setDismissed] = useState(wasDismissed);
+  const [bookingInView, setBookingInView] = useState(false);
 
-  // Preload Calendly assets immediately, auto-open the popup once per session
   useEffect(() => {
-    ensureCalendlyAssets();
-
-    if (dismissed || sessionStorage.getItem(SESSION_KEY)) return;
-
-    const timer = setTimeout(() => {
-      sessionStorage.setItem(SESSION_KEY, 'true');
-      openPopup();
-    }, AUTO_OPEN_DELAY);
-    return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const section = document.getElementById(BOOKING_SECTION_ID);
+    if (!section || typeof IntersectionObserver === 'undefined') return;
+    // Several changes can arrive together (fast scrolling): the last one is current.
+    const observer = new IntersectionObserver((entries) => setBookingInView(entries[entries.length - 1].isIntersecting));
+    observer.observe(section);
+    return () => observer.disconnect();
   }, []);
-
-  const openPopup = async () => {
-    // Calendly's popup is a full-screen modal - tell the WhatsApp widget to
-    // close first so it can never be trapped underneath, unable to be dismissed.
-    window.dispatchEvent(new CustomEvent(CALENDLY_OPENING_EVENT));
-    await ensureCalendlyAssets();
-    window.Calendly?.initPopupWidget({ url: CALENDLY_URL });
-  };
 
   const handleDismiss = () => {
     setDismissed(true);
-    sessionStorage.setItem(DISMISS_KEY, 'true');
+    try {
+      sessionStorage.setItem(DISMISS_KEY, 'true');
+    } catch {
+      // Storage unavailable: the widget simply returns on the next visit.
+    }
   };
 
-  if (dismissed) return null;
+  if (dismissed || bookingInView) return null;
 
   return (
     <div className="fixed bottom-5 right-5 z-50 sm:bottom-6 sm:right-6">
       <div className="relative">
         <button
           onClick={handleDismiss}
-          aria-label="Dismiss booking widget"
+          aria-label="Dismiss booking shortcut"
           className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-spa-charcoal text-white flex items-center justify-center shadow-md hover:bg-spa-gold hover:text-spa-charcoal transition-colors z-10"
         >
           <X className="w-3.5 h-3.5" />
         </button>
         <button
-          onClick={openPopup}
+          onClick={goToBooking}
           className="flex items-center gap-2 bg-spa-gold hover:bg-spa-gold-dark text-spa-charcoal hover:text-white pl-4 pr-5 py-3.5 rounded-full shadow-xl transition-all hover:scale-105 active:scale-95"
         >
           <Calendar className="w-5 h-5" />

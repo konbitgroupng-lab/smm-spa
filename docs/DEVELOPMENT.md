@@ -1,18 +1,18 @@
 # Development guide
 
-SMM is a React 19 + Vite + Tailwind site backed by Supabase (Postgres, Auth, Row Level Security, Storage, Edge Functions). This guide covers Phases 1-3: what exists, how to run it, and the rules the rest of the build relies on.
+SMM is a React 19 + Vite + Tailwind site backed by Supabase (Postgres, Auth, Row Level Security, Storage, Edge Functions). This guide covers Phases 1-4: what exists, how to run it, and the rules the rest of the build relies on.
 
 ## Current state
 
 | Area | Status |
 | --- | --- |
-| Public site (`src/App.tsx`) | Unchanged. Still renders static content from `src/data.ts` and the placeholder Calendly widget. |
+| Public site (`src/App.tsx`) | Sections unchanged, except the booking area (now the funnel), the service and package cards (database catalogue, static fallback) and the removal of "My Bookings". |
 | Database schema, RLS, storage bucket | Done (Phase 1), as migrations in `supabase/migrations/`. |
-| Data-access layer (`src/services/`) | Done. Not yet wired into the page components (Phase 4). |
+| Data-access layer (`src/services/`) | Done; used by the booking funnel and the service and package cards. |
 | Availability engine, validated holds, public `booking` endpoint | Done (Phase 2). |
 | Payments (`PaymentGateway` interface) | Done (Phase 3 prototype). Runs on the **demo gateway**: no real money moves. The Paystack adapter is built and tested but not connected; see "Future Paystack integration". |
-| Booking flow prototype (`?view=booking-prototype`) | Development page that runs the whole flow on the real backend with demo payments. Replaced by the public funnel in Phase 4. |
-| Booking funnel, admin dashboard, CMS screens | Phases 4-6. |
+| Public booking funnel and confirmation page | Done (Phase 4); see "Booking funnel". |
+| Admin and staff dashboard; CMS, analytics, notifications | Phases 5-6; see "Deferred to Phases 5 and 6". |
 
 ## Quick start
 
@@ -39,7 +39,6 @@ Copy `.env.example` to `.env.local` and fill it from the `db:start` output:
 | `SUPABASE_URL` | local scripts | n/a |
 | `SUPABASE_SERVICE_ROLE_KEY` | local scripts, later Edge Functions | **No. Server only.** It bypasses RLS. |
 | `DEMO_USER_PASSWORD` | `db:seed-users` | **No.** Optional. |
-| `VITE_ENABLE_BOOKING_PROTOTYPE` | frontend | Yes. `true` serves the booking prototype page outside development builds. |
 | `PAYMENT_PROVIDER` | Edge Functions | Server setting: `mock` (demo payments) or `paystack`. |
 | `PAYSTACK_SECRET_KEY` | Edge Functions, only with `PAYMENT_PROVIDER=paystack` | **No. Server only.** Not needed until Paystack is connected. |
 
@@ -204,8 +203,7 @@ Until the client's Paystack account is connected, the functions run with `PAYMEN
 | `mock_provider.transactions` | The demo provider's ledger: plays Paystack's servers. Only reachable through `mock_provider_*` functions, which are server-only. |
 | Demo checkout page (`?view=demo-checkout&reference=…`) | Plays Paystack's hosted checkout. The guest chooses: pay, declined card, pending bank transfer, or cancel. A testing option makes the provider send its notification twice. |
 | `demo-checkout` function | Records the choice in the ledger, then delivers a signed `charge.success` to the real webhook handler in-process, as Paystack would. It never touches payments or appointments directly. |
-| Return page (`?view=payment-return&reference=…`) | Calls `verifyPayment` and shows the server's outcome; offers a retry after a failure. |
-| Booking prototype (`?view=booking-prototype`) | Service, therapist, date, time, details, payment, on the real backend. Development builds only, unless `VITE_ENABLE_BOOKING_PROTOTYPE=true`. |
+| Confirmation page (`?view=payment-return&reference=…`) | The site's booking confirmation (see "Booking funnel"). The same page serves demo and real payments. |
 
 Safeguards:
 
@@ -214,7 +212,7 @@ Safeguards:
 - The database refuses demo payments unless `business_settings.allow_demo_payments` is true. The column defaults to false; only the development seed turns it on. A production database therefore rejects demo payments even if a function were misconfigured.
 - The demo webhook secret is derived from the project's service-role key, so the functions agree on it without another secret, and it never reaches the browser.
 
-To run the prototype on a hosted development project: push the migrations, load the seed, deploy `booking`, `payments`, `paystack-webhook` and `demo-checkout`, set `PAYMENT_PROVIDER=mock`, `ALLOWED_ORIGINS` and `RATE_LIMIT_SALT` as function secrets, then open `http://localhost:3000/?view=booking-prototype` with `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` pointing at that project.
+To use demo payments on a hosted development project: push the migrations, load the seed, deploy `booking`, `payments`, `paystack-webhook` and `demo-checkout`, set `PAYMENT_PROVIDER=mock`, `ALLOWED_ORIGINS` and `RATE_LIMIT_SALT` as function secrets, then run the site with `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` pointing at that project and book through the "Book online" section.
 
 ### Future Paystack integration
 
@@ -277,9 +275,51 @@ One public bucket, `site-media` (5 MB limit; JPEG, PNG, WebP, AVIF), with folder
 - `bookingService`: guest availability (`getAvailableSlots`) and hold actions through the `booking` function. Failures throw `BookingError` with the codes above.
 - `paymentService`: `startPayment` and `verifyPayment` through the `payments` function. Only a `confirmed` outcome from `verifyPayment` means a booking exists. The `*DemoCheckout` functions drive the demo checkout page.
 
-`src/prototype/` holds the development pages (booking prototype, demo checkout, payment return), selected by `?view=` in `src/main.tsx` and loaded only when used, so the public site's bundle is unchanged.
+Nothing is stored in `localStorage`. The old booking form's `everest_bookings` key is deleted on every page load (`src/booking/legacyStorage.ts`). `sessionStorage` (this tab only) holds two conveniences: the reserved-time token for retrying a failed payment (`smm_payment_<reference>`, removed once the outcome is final) and whether the floating shortcut was dismissed.
 
-`localStorage` must not become a source of truth for any of this. The in-page booking form in `src/App.tsx` still saves to `localStorage`; it is replaced in Phase 4.
+## Booking funnel
+
+The "Book online" section (`#booking`) is the funnel; `src/booking/` holds all of it.
+
+| Piece | File | Role |
+| --- | --- | --- |
+| State machine | `funnel.ts` | Steps, guards, hold invalidation and release, expiry, display-only price estimate, details validation. No network, no React. |
+| Controller | `useBookingFunnel.ts` | Connects the state machine to `bookingService` and `paymentService`: availability, then hold, then details, then payment. |
+| Catalogue | `useBookingCatalog.ts`, `useSiteCatalog.ts` | What the funnel and the site's cards need from the database; static content when it is unavailable. |
+| Screens | `components/` | `BookingSection` (loading, unavailable, error, funnel), `BookingFunnel`, the five steps, `HoldTimer`, `BookingSummary`. |
+| Confirmation | `BookingConfirmationPage.tsx` | Served at `?view=payment-return&reference=…`, the address the checkout returns to: confirmed, pending (re-checks automatically), failed (retry), refund required. |
+| Routing | `src/routes.ts`, `src/AppRouter.tsx` | `?view=payment-return` and `?view=demo-checkout`; everything else is the website. Query parameters need no hosting rewrites. |
+
+How it connects to the rest of the site:
+
+- The service and package "Book" buttons preselect that treatment in the funnel and move focus to the booking heading. Any time already reserved for another treatment is given back.
+- The floating "Spa Appointments" button scrolls to the funnel (Calendly is gone). It hides while the booking section is on screen.
+- Going to the booking section, or using the funnel, closes the WhatsApp chat panel, through the hand-off event in `src/components/widgetEvents.ts` that the Calendly popup used before. The WhatsApp widget itself is unchanged.
+- With no backend, no catalogue or business settings, or online payment switched off, the section shows "Online booking is unavailable right now" with WhatsApp and phone links. The rest of the site renders normally from its static content.
+
+Trust boundary, unchanged from Phases 2 and 3: the funnel sends only choices (treatment, place, therapist, time, contact details). Prices before payment are labelled estimates; the amount at payment is the server's. The browser never creates appointments or decides that a payment succeeded. The confirmation page shows only what the server's verification returns.
+
+### Demo and real payments in the funnel
+
+| | Demo (now) | Real (later) |
+| --- | --- | --- |
+| Server setting | `PAYMENT_PROVIDER=mock` | `PAYMENT_PROVIDER=paystack` plus `PAYSTACK_SECRET_KEY` |
+| Checkout the guest is sent to | The site's demo checkout (`?view=demo-checkout`) | Paystack's hosted checkout |
+| "Demo Payment — No real money will be charged." | Shown on review, demo checkout and confirmation | Never shown (the server reports `demo: false`) |
+| Pay button | "Continue to demo payment" | "Pay securely" |
+| Return address and confirmation page | Same | Same |
+
+### Deferred to Phases 5 and 6
+
+Not part of the funnel, by decision:
+
+- Customer accounts, and guest self-service cancel or reschedule. The confirmation asks guests to message or call.
+- Intake questions (Phase 5, with the admin switches to enable them).
+- Admin and staff dashboard, schedule and service management, staff sign-in screens (Phase 5).
+- CMS editing; FAQs, gallery and testimonials from the database; analytics (Phase 6).
+- Email, SMS and WhatsApp confirmations and reminders.
+- Refund initiation.
+- An offline "bank transfer then send proof" payment path.
 
 ## Demo data
 
@@ -304,8 +344,16 @@ One public bucket, `site-media` (5 MB limit; JPEG, PNG, WebP, AVIF), with folder
 | `tests/db/payment-schedule.test.ts` | Each scheduling rule changed after a hold: the paid hold is refused with the rule named; unrelated changes and time passing are not |
 | `tests/functions/gateway-contract.test.ts` | The same payment scenarios against both gateways (Paystack adapter and demo gateway): proves the demo exercises the same invariants |
 | `tests/functions/demo-checkout.test.ts` | The demo checkout backend, the opt-in switch, the provider selection, and the demo provider's access boundary |
-| `tests/e2e/booking-payment-prototype.test.ts` | The prototype flow through the frontend's own service modules over HTTP (`tests/support/local-backend.ts`), plus page routing |
+| `tests/e2e/booking-payment-prototype.test.ts` | The booking and payment services over HTTP (`tests/support/local-backend.ts`), plus page routing |
 | `tests/db/mock-payments-concurrency.test.ts` | Demo-payment races on real PostgreSQL |
+| `tests/booking/*.test.ts` | The funnel state machine, the controller hook, the catalogue hook, Lagos-time calendar helpers |
+| `tests/booking/components/*.test.tsx` | Every funnel step, keyboard-only booking, 409 and 410 handling, the countdown, the demo notice, the unavailable state, every confirmation outcome (jsdom and Testing Library) |
+| `tests/site/site-without-backend.test.tsx` | The whole website with no backend: static fallback, legacy form and My Bookings gone, `localStorage` clean-up, "Book" and floating buttons, WhatsApp hand-off, routing |
+| `tests/site/site-with-backend.test.tsx` | The whole website against the real handlers and database: every booking scenario through to the confirmation page |
+
+The local test backend (`tests/support/local-backend.ts`) serves the real Edge Function handlers and the database's REST reads and RPC calls over HTTP, so the site's own code can be tested end to end without Docker or a Supabase account.
+
+Layout at 360, 768 and 1280 px was checked in headless Microsoft Edge against the integrated site (no horizontal scroll, no covered controls, sticky summary behaviour, focus placement). That check is not part of `npm test`.
 
 Limits: Supabase Auth itself (login, password reset emails), real Storage uploads, the Deno entry point `index.ts`, the pg_cron schedule and PostgREST's handling of the RPC calls are not covered; check those against a local or hosted Supabase project.
 
@@ -315,18 +363,18 @@ Decide or fix these in the booking-funnel and payment phases:
 
 - **Mobile travel time.** A mobile appointment blocks only the service duration and the normal turnover buffer; no extra travel time is reserved. Needs the client's input.
 - **Payments are simulated.** The site runs on the demo gateway. The Paystack adapter has only been tested against a simulated Paystack built from its documentation; follow "Future Paystack integration" before go-live.
-- **Prototype pages are not the public funnel.** `?view=booking-prototype` is a plain development page; the demo checkout and return pages will be restyled or replaced in Phase 4.
+- **Edited details after payment starts.** If a guest goes back and changes their details after payment has started, the booking gets the new name and phone, but the already-open payment keeps the original email.
+- **No favicon.** The site has no `favicon.ico`, so browsers log a 404 (pre-existing).
 - **Refunds are manual.** Payments flagged `needs_refund` must be refunded by the owner in the Paystack dashboard; the resulting Paystack events update the record. Nothing alerts staff to a flagged payment until the Phase 5 dashboard exists.
 - **Several partial refunds.** Each payment stores one refund reference and a running total; a per-refund history table is left for the refund workflow.
 - **Deposit balances.** A deposit confirms the booking; collecting the remainder is not handled online.
 - **Rule changes and unpaid holds.** A rule change is always caught when the hold is paid for. Creating a hold (`request_booking_hold`) does not take the schedule-rules lock, so a hold can be created in the same instant a rule changes; it then fails at payment and the payment is flagged for refund.
 - **Price changes after payment starts.** The price is fixed when payment starts; a later catalogue price change does not affect that booking.
 - **Staff view of contact details.** Appointments now keep the name and phone typed for that booking (`contact_name`, `contact_phone`); `appointmentsService` does not show them yet.
-- **A guest's own hold hides its slot.** While a guest holds a time, the availability listing shows that time as taken, including to that guest.
+- **A guest's own hold hides its slot (server side).** The availability listing shows a held time as taken, including to the guest holding it. The funnel adds it back as "Reserved for you"; other clients of the API would need to do the same.
 - **Rate limiting is per IP address.** Visitors sharing one network share a limit. The limits are constants in `supabase/functions/booking/handler.ts`.
 - **`embedded-postgres` is a development/test-only dependency.** It downloads PostgreSQL binaries and is never part of the deployed site.
 - **Site content.** The live page still shows testimonials with realistic names, therapist star ratings and a street address that the client has not verified.
-- **Legacy booking form.** The in-page form in `src/App.tsx` still saves bookings to `localStorage` (`everest_bookings`).
 - **Paystack eligibility.** The client's merchant account has not been confirmed.
 - **Intake data retention.** Access is restricted by RLS, but nothing deletes intake answers automatically.
 

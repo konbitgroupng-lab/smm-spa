@@ -12,7 +12,8 @@ export const focusRing = 'focus-visible:outline-none focus-visible:ring-2 focus-
 export const StepHeading = forwardRef<HTMLHeadingElement, { children: ReactNode; hint?: ReactNode }>(function StepHeading({ children, hint }, ref) {
   return (
     <div className="space-y-1">
-      <h3 ref={ref} tabIndex={-1} className="font-serif text-2xl text-spa-charcoal focus:outline-none">
+      {/* scroll-mt keeps the heading clear of the site's fixed header when focus brings it into view */}
+      <h3 ref={ref} tabIndex={-1} className="scroll-mt-32 font-serif text-2xl text-spa-charcoal focus:outline-none">
         {children}
       </h3>
       {hint && <p className="text-sm text-spa-clay">{hint}</p>}

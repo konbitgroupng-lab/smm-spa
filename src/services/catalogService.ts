@@ -1,6 +1,7 @@
-import { packagesData, servicesData, therapistsData, type Service, type SpaPackage, type Therapist } from '../data';
+import { therapistsData, type Service, type SpaPackage, type Therapist } from '../data';
 import { formatMoney, toMajorUnits } from '../lib/money';
 import { isSupabaseConfigured, requireSupabase, storagePublicUrl } from '../lib/supabase';
+import { staticCatalog } from './staticCatalog';
 
 // Catalogue reads for the public site. Results keep the shape the existing
 // components already use (src/data.ts), so sections can switch from static
@@ -131,13 +132,7 @@ export function mapTherapist(row: TherapistRow, media: MediaUrls = new Map()): C
   };
 }
 
-function staticCatalog(): Catalog {
-  const extra = { dbId: null, bufferMinutes: 0, currency: 'NGN' };
-  return {
-    services: servicesData.map((s) => ({ ...s, ...extra })),
-    packages: packagesData.map((p) => ({ ...p, ...extra })),
-  };
-}
+export { staticCatalog };
 
 async function fetchMediaUrls(ids: (string | null)[]): Promise<MediaUrls> {
   const wanted = [...new Set(ids.filter((id): id is string => Boolean(id)))];

@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { PGlite } from '@electric-sql/pglite';
-import { resolvePrototypeView } from '../../src/prototype/routes';
+import { resolveView } from '../../src/routes';
 import { at, upcoming } from '../db/dates';
 import { createTestDb, one, rows } from '../db/harness';
 import { startLocalBackend } from '../support/local-backend';
@@ -57,13 +57,13 @@ describe('booking prototype, end to end through the frontend services', () => {
     expect(start).toMatchObject({ demo: true, provider: 'mock', amountMinor: PRICE, currency: 'NGN', kind: 'full' });
 
     // The checkout address opens the demo checkout page.
-    const checkoutView = resolvePrototypeView(new URL(start.checkoutUrl).search, false);
+    const checkoutView = resolveView(new URL(start.checkoutUrl).search);
     expect(checkoutView).toEqual({ page: 'demo-checkout', reference: start.reference });
     expect(await pay.getDemoCheckout(start.reference)).toMatchObject({ demo: true, amountMinor: PRICE, status: 'abandoned' });
 
     // The guest pays; the provider sends them back to the return page.
     const { returnUrl } = await pay.completeDemoCheckout(start.reference, 'success');
-    expect(resolvePrototypeView(new URL(returnUrl!).search, false)).toEqual({ page: 'payment-return', reference: start.reference });
+    expect(resolveView(new URL(returnUrl!).search)).toEqual({ page: 'payment-return', reference: start.reference });
 
     const outcome = await pay.verifyPayment(start.reference);
     expect(outcome).toMatchObject({ status: 'confirmed', demo: true });
@@ -134,13 +134,13 @@ describe('booking prototype, end to end through the frontend services', () => {
   });
 });
 
-describe('prototype page routing', () => {
+describe('page routing', () => {
   it('maps the query string to a page and ignores anything malformed', () => {
-    expect(resolvePrototypeView('', true)).toEqual({ page: 'site' });
-    expect(resolvePrototypeView('?view=booking-prototype', true)).toEqual({ page: 'booking-prototype' });
-    expect(resolvePrototypeView('?view=booking-prototype', false)).toEqual({ page: 'site' }); // off in production builds
-    expect(resolvePrototypeView('?view=payment-return&trxref=SMMP-ABC12345&reference=SMMP-ABC12345', false)).toEqual({ page: 'payment-return', reference: 'SMMP-ABC12345' });
-    expect(resolvePrototypeView('?view=demo-checkout&reference=<script>', false)).toEqual({ page: 'site' });
-    expect(resolvePrototypeView('?view=admin', true)).toEqual({ page: 'site' });
+    expect(resolveView('')).toEqual({ page: 'site' });
+    expect(resolveView('?view=booking-prototype')).toEqual({ page: 'site' }); // the prototype booking page is gone
+    expect(resolveView('?view=payment-return&trxref=SMMP-ABC12345&reference=SMMP-ABC12345')).toEqual({ page: 'payment-return', reference: 'SMMP-ABC12345' });
+    expect(resolveView('?view=demo-checkout&reference=SMMP-ABC12345')).toEqual({ page: 'demo-checkout', reference: 'SMMP-ABC12345' });
+    expect(resolveView('?view=demo-checkout&reference=<script>')).toEqual({ page: 'site' });
+    expect(resolveView('?view=admin')).toEqual({ page: 'site' });
   });
 });

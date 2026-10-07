@@ -2,6 +2,8 @@ import { Check } from 'lucide-react';
 import { useEffect, useRef, useState, type FocusEvent } from 'react';
 import { STEPS, type FunnelStep } from '../funnel';
 import type { BookingCatalog } from '../useBookingCatalog';
+import { announceBookingEngaged } from '../../components/widgetEvents';
+import { browser } from '../navigation';
 import { useBookingFunnel, type FunnelApi } from '../useBookingFunnel';
 import BookingSummary, { StickySummaryBar } from './BookingSummary';
 import { DateTimeStep } from './steps/DateTimeStep';
@@ -65,28 +67,53 @@ export interface BookingFunnelProps {
   navigate?: (url: string) => void;
 }
 
-export default function BookingFunnel({ catalog, callbackUrl, preselectServiceId, api, navigate = (url) => window.location.assign(url) }: BookingFunnelProps) {
+export default function BookingFunnel({ catalog, callbackUrl, preselectServiceId, api, navigate = browser.assign }: BookingFunnelProps) {
   const funnel = useBookingFunnel({ catalog, callbackUrl, api, preselectServiceId });
   const { state } = funnel;
   const headingRef = useRef<HTMLHeadingElement>(null);
   const [typing, setTyping] = useState(false);
 
-  // Move focus to the new step's heading when the step changes (not on first render,
-  // so the page is not scrolled or announced before the guest interacts).
-  const firstRender = useRef(true);
+  // A "Book" button elsewhere on the page chose a treatment: switch to it. Any
+  // time already reserved for another treatment is given back by the state machine.
+  const lastPreselect = useRef(preselectServiceId);
   useEffect(() => {
-    if (firstRender.current) {
-      firstRender.current = false;
-      return;
-    }
-    headingRef.current?.focus();
+    if (!preselectServiceId || preselectServiceId === lastPreselect.current) return;
+    lastPreselect.current = preselectServiceId;
+    funnel.selectService(preselectServiceId);
+    funnel.goTo('service');
+  }, [preselectServiceId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Move focus to the new step's heading when the step changes - never on first
+  // display, so the page is not scrolled or announced before the guest interacts.
+  // Compares with the last step rather than counting renders, so React's strict
+  // mode (which runs effects twice) cannot trigger it.
+  const lastFocusedStep = useRef(state.step);
+  useEffect(() => {
+    if (state.step === lastFocusedStep.current) return;
+    lastFocusedStep.current = state.step;
+    const heading = headingRef.current;
+    if (!heading) return;
+    // Focus without the browser's own scroll, then bring the heading into view
+    // if it is not comfortably visible. The jump is instant: an animated scroll
+    // can end in the wrong place when the step's height changes during it. The
+    // heading's scroll-margin keeps it below the fixed site header.
+    heading.focus({ preventScroll: true });
+    const top = heading.getBoundingClientRect().top;
+    if (top < 120 || top > window.innerHeight * 0.6) heading.scrollIntoView?.({ block: 'start', behavior: 'instant' });
   }, [state.step]);
 
   // Hide the sticky summary while a text field has focus, so it can never sit
   // over the field or the on-screen keyboard.
   const isTextField = (el: EventTarget | null) =>
     el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement || (el instanceof HTMLInputElement && !['radio', 'checkbox', 'button', 'submit'].includes(el.type));
-  const onFocus = (e: FocusEvent) => setTyping(isTextField(e.target));
+  // While the guest uses the funnel, the WhatsApp chat panel (which opens by
+  // itself once per visit, possibly after booking has begun) is closed so it
+  // cannot cover the booking steps. Harmless when it is already closed.
+  const engage = () => announceBookingEngaged();
+  const onFocus = (e: FocusEvent) => {
+    engage();
+    setTyping(isTextField(e.target));
+  };
   const onBlur = (e: FocusEvent) => {
     if (!isTextField(e.relatedTarget)) setTyping(false);
   };
@@ -95,7 +122,9 @@ export default function BookingFunnel({ catalog, callbackUrl, preselectServiceId
   const index = STEPS.indexOf(state.step);
 
   return (
-    <div className="overflow-hidden rounded border border-spa-taupe bg-white shadow-2xl" onFocus={onFocus} onBlur={onBlur}>
+    // overflow-clip (not overflow-hidden) rounds the corners without making the
+    // card a scroll container, which would stop the summary bar from sticking.
+    <div className="overflow-clip rounded border border-spa-taupe bg-white shadow-2xl" onFocus={onFocus} onBlur={onBlur} onPointerDown={engage}>
       <div className="flex flex-wrap items-center justify-between gap-2 bg-spa-charcoal px-5 py-4 text-white">
         <h2 className="font-serif text-lg text-spa-gold">Book your treatment</h2>
         <p className="text-xs text-white/70">

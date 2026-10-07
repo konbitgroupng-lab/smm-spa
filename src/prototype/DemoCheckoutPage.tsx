@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { formatMoney } from '../lib/money';
 import { cancelDemoCheckout, completeDemoCheckout, getDemoCheckout, type DemoCheckout, type DemoOutcome } from '../services/paymentService';
 import DemoPaymentNotice from '../booking/components/DemoPaymentNotice';
+import { browser } from '../booking/navigation';
 import PrototypeShell, { Button, ErrorMessage, messageFor, Panel } from './PrototypeShell';
 
 // Plays the payment provider's hosted checkout page while the server uses the
@@ -23,7 +24,7 @@ export default function DemoCheckoutPage({ reference }: { reference: string }) {
     setError(null);
     try {
       const { returnUrl } = await run();
-      if (returnUrl) window.location.assign(returnUrl);
+      if (returnUrl) browser.assign(returnUrl);
       else setCheckout(await getDemoCheckout(reference));
     } catch (err) {
       setError(messageFor(err));
