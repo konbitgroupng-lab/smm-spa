@@ -6,6 +6,7 @@ import StaffApp from '../../src/staff/StaffApp';
 import { readAuthLink, type AuthLink } from '../../src/staff/lib/authLink';
 import { StaffError, type AuthEvent, type StaffBackend, type StaffRole, type WhoAmI } from '../../src/staff/lib/backend';
 import { sectionFromHash, sectionsFor } from '../../src/staff/sections';
+import { fakeOps } from './fake-ops';
 
 // The staff app's screens against a scripted backend. What each role may do is
 // proven in the database tests; these check that the app reflects it.
@@ -48,7 +49,7 @@ class FakeBackend implements StaffBackend {
 }
 
 function start(backend: StaffBackend | null, link: AuthLink = null) {
-  return render(<StaffApp backend={backend} initialLink={link} resetRedirect="https://example.test/staff/" />);
+  return render(<StaffApp backend={backend} ops={backend ? fakeOps() : null} initialLink={link} resetRedirect="https://example.test/staff/" />);
 }
 
 afterEach(() => {
@@ -75,12 +76,12 @@ describe('signing in', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Sign in' }));
     const nav = await screen.findByRole('navigation', { name: 'Staff sections' });
     expect(within(nav).getAllByRole('link').map((a) => a.textContent)).toEqual([
-      'Bookings', 'Schedules', 'Services & therapists', 'Payments', 'Staff accounts', 'Settings', 'Activity log', 'My account',
+      'Today', 'Bookings', 'Customers', 'Schedules', 'Services & therapists', 'Payments', 'Staff accounts', 'Settings', 'Activity log', 'My account',
     ]);
   });
 
   it.each([
-    ['admin', ['Bookings', 'Schedules', 'Services & therapists', 'Payments', 'Settings', 'Activity log', 'My account']],
+    ['admin', ['Today', 'Bookings', 'Customers', 'Schedules', 'Services & therapists', 'Payments', 'Settings', 'Activity log', 'My account']],
     ['therapist', ['My agenda', 'My account']],
   ] as const)('%s sees only their sections', async (role, labels) => {
     const backend = new FakeBackend();
@@ -223,14 +224,77 @@ describe('my account', () => {
 
 describe('sections and configuration', () => {
   it('section routing ignores auth fragments', () => {
-    expect(sectionFromHash('#access_token=abc&type=recovery', 'owner').id).toBe('bookings');
+    expect(sectionFromHash('#access_token=abc&type=recovery', 'owner').id).toBe('home');
     expect(sectionFromHash('#/activity', 'admin').id).toBe('activity');
-    expect(sectionFromHash('#/staff', 'admin').id).toBe('bookings');
+    expect(sectionFromHash('#/staff', 'admin').id).toBe('home');
     expect(sectionsFor('therapist').map((s) => s.id)).toEqual(['agenda', 'account']);
   });
 
   it('without a backend, the staff app says so', () => {
     start(null);
     expect(screen.getByRole('heading', { name: 'Staff area unavailable' })).toBeTruthy();
+  });
+});
+
+describe('access re-check when returning to the tab', () => {
+  it('a deactivation shows when the tab regains focus, at most every 15 seconds', async () => {
+    let t = 1_000_000;
+    const now = vi.spyOn(Date, 'now').mockImplementation(() => t);
+    try {
+      const backend = new FakeBackend();
+      backend.session = { email: 'admin@example.com' };
+      backend.identity = who('admin');
+      start(backend);
+      await screen.findByRole('navigation', { name: 'Staff sections' });
+      expect(backend.whoami).toHaveBeenCalledTimes(1);
+      backend.identity = who(null, {}, false);
+
+      t += 5_000;
+      act(() => { window.dispatchEvent(new Event('focus')); });
+      expect(backend.whoami).toHaveBeenCalledTimes(1); // too soon after the last check
+
+      t += 15_000;
+      act(() => { document.dispatchEvent(new Event('visibilitychange')); });
+      expect(await screen.findByRole('heading', { name: 'Account not active' })).toBeTruthy();
+      expect(backend.whoami).toHaveBeenCalledTimes(2);
+    } finally {
+      now.mockRestore();
+    }
+  });
+
+  it('a failed re-check leaves the screen as it is', async () => {
+    let t = 1_000_000;
+    const now = vi.spyOn(Date, 'now').mockImplementation(() => t);
+    try {
+      const backend = new FakeBackend();
+      backend.session = { email: 'admin@example.com' };
+      backend.identity = who('admin');
+      start(backend);
+      await screen.findByRole('navigation', { name: 'Staff sections' });
+      backend.whoami.mockRejectedValueOnce(new StaffError('network'));
+      t += 20_000;
+      act(() => { window.dispatchEvent(new Event('focus')); });
+      await waitFor(() => expect(backend.whoami).toHaveBeenCalledTimes(2));
+      expect(screen.getByRole('navigation', { name: 'Staff sections' })).toBeTruthy();
+      expect(screen.queryByRole('heading', { name: 'Could not load the staff area' })).toBeNull();
+    } finally {
+      now.mockRestore();
+    }
+  });
+
+  it('nothing is checked while signed out or resetting a password', async () => {
+    let t = 1_000_000;
+    const now = vi.spyOn(Date, 'now').mockImplementation(() => t);
+    try {
+      const backend = new FakeBackend();
+      start(backend);
+      await userEvent.click(await screen.findByRole('button', { name: 'Forgot your password?' }));
+      t += 60_000;
+      act(() => { window.dispatchEvent(new Event('focus')); });
+      expect(screen.getByRole('heading', { name: 'Reset your password' })).toBeTruthy();
+      expect(backend.getSession).toHaveBeenCalledTimes(1);
+    } finally {
+      now.mockRestore();
+    }
   });
 });

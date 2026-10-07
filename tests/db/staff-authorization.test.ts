@@ -127,7 +127,9 @@ describe('direct table writes are refused (decision B)', () => {
     expect(await outcome('admin', `update services set name = name where slug = 'swedish'`)).toBe('ok');
     expect(await outcome('admin', `update therapists set bio = bio where sort_order = 1`)).toBe('ok');
     expect(await outcome('admin', `insert into blackout_dates (starts_at, ends_at, reason) values (now() + interval '50 days', now() + interval '51 days', 'test') `)).toBe('ok');
-    expect(await outcome('admin', `update customers set staff_notes = 'prefers mornings' where email = 'demo.ada@example.com'`)).toBe('ok');
+    // Phase 5b: customer master edits go through staff_update_customer (versioned, audited).
+    expect(await outcome('admin', `update customers set staff_notes = 'x'`)).toBe('denied');
+    expect(await outcome('admin', `select staff_update_customer(c.id, c.updated_at, c.full_name, c.email, c.phone, 'prefers mornings') from customers c where email = 'demo.ada@example.com'`)).toBe('ok');
     expect(await outcome('therapist', `update services set price_minor = 1`)).toBe('ok'); // runs, but RLS lets it change nothing
     expect(Number((await one(db, `select price_minor from services where slug = 'swedish'`)).price_minor)).toBe(4_000_000);
   });
@@ -241,8 +243,9 @@ describe('therapist agenda', () => {
     expect(agenda).toHaveLength(1);
     expect(agenda[0]).toMatchObject({ appointment_id: appt.id, contact_name: 'Booking Contact', contact_phone: '+2348000001111', payment_state: 'to_collect' });
     expect(Object.keys(agenda[0]).sort()).toEqual([
-      'appointment_id', 'contact_name', 'contact_phone', 'customer_notes', 'duration_minutes', 'ends_at', 'is_demo', 'location_type',
-      'payment_state', 'reference', 'service_address', 'service_name', 'starts_at', 'status', 'zone_name',
+      'appointment_id', 'booking_notes', 'contact_name', 'contact_phone', 'customer_notes', 'duration_minutes', 'ends_at', 'is_demo',
+      'location_type', 'payment_state', 'reference', 'service_address', 'service_name', 'source', 'starts_at', 'status',
+      'updated_at', 'zone_name',
     ]);
     expect(JSON.stringify(agenda)).not.toContain('@example.com');
     expect(JSON.stringify(agenda)).not.toContain('prefers mornings'); // staff notes

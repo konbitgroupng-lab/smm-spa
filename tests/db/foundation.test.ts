@@ -153,7 +153,9 @@ describe('RLS: therapists', () => {
       schedules: await rows(db, `select distinct therapist_id from therapist_schedules`),
       agenda: await rows(db, `select appointment_id, contact_name from therapist_agenda(now() - interval '1 day', now() + interval '30 days')`),
     }));
-    expect(seen.appointments.map((a) => a.id)).toEqual([apptA]);
+    // Phase 5b: therapists no longer read the appointments table at all; their
+    // agenda returns only what they need for their own appointments.
+    expect(seen.appointments).toEqual([]);
     // Phase 5a (decision B): the customers table is no longer readable by therapists;
     // their agenda gives the booking contact for their own appointments only.
     expect(seen.customers).toEqual([]);
@@ -180,11 +182,12 @@ describe('RLS: therapists', () => {
     await expect(asRole(db, 'authenticated', therapistAUser, () => db.query(`update profiles set role = 'owner'`))).rejects.toThrow(/permission denied/);
     const services = await asRole(db, 'authenticated', therapistAUser, async () => (await db.query(`update services set price_minor = 1`)).affectedRows);
     expect(services).toBe(0);
+    // Phase 5b: customer records change only through staff functions.
     await expect(
       asRole(db, 'authenticated', therapistAUser, () =>
         db.query(`insert into customers (full_name, email) values ('X', 'x@example.com')`),
       ),
-    ).rejects.toThrow(/row-level security/);
+    ).rejects.toThrow(/permission denied/);
   });
 });
 
@@ -211,8 +214,12 @@ describe('RLS: owner/admin', () => {
   });
 
   it('can create a customer, but not write appointments directly', async () => {
+    // Phase 5b: through the customer function, not the table.
+    await expect(
+      asRole(db, 'authenticated', ownerId, () => db.query(`insert into customers (full_name, email) values ('X', 'x@example.com')`)),
+    ).rejects.toThrow(/permission denied/);
     const customer = await asRole(db, 'authenticated', ownerId, () =>
-      one(db, `insert into customers (full_name, email, phone, is_demo) values ('[DEMO] Chidi Example', 'demo.chidi@example.com', '+2340000000003', true) returning id`),
+      one(db, `select (staff_create_customer('[DEMO] Chidi Example', 'demo.chidi@example.com', '+2340000000003')).id`),
     );
     expect(customer.id).toBeTruthy();
     // Phase 5a (decision B): appointments change only through checked, audited functions.
@@ -244,9 +251,10 @@ describe('RLS: owner/admin', () => {
   it('rejects a second customer with the same email in a different case', async () => {
     await expect(
       asRole(db, 'authenticated', ownerId, () =>
-        db.query(`insert into customers (full_name, email) values ('Dup', 'DEMO.ADA@example.com')`),
+        db.query(`select staff_create_customer('Dup', 'DEMO.ADA@example.com')`),
       ),
-    ).rejects.toThrow(/customers_email_key/);
+    ).rejects.toThrow(/email_in_use/);
+    await expect(db.query(`insert into customers (full_name, email) values ('Dup', 'DEMO.ADA@example.com')`)).rejects.toThrow(/customers_email_key/);
   });
 
   it('cannot fabricate payment records', async () => {

@@ -16,8 +16,10 @@ const ALL: StaffRole[] = ['owner', 'admin', 'therapist'];
 const MANAGERS: StaffRole[] = ['owner', 'admin'];
 
 export const SECTIONS: Section[] = [
-  { id: 'agenda', label: 'My agenda', roles: ['therapist'], built: false },
-  { id: 'bookings', label: 'Bookings', roles: MANAGERS, built: false },
+  { id: 'home', label: 'Today', roles: MANAGERS, built: true },
+  { id: 'agenda', label: 'My agenda', roles: ['therapist'], built: true },
+  { id: 'bookings', label: 'Bookings', roles: MANAGERS, built: true },
+  { id: 'customers', label: 'Customers', roles: MANAGERS, built: true },
   { id: 'schedules', label: 'Schedules', roles: MANAGERS, built: false },
   { id: 'catalogue', label: 'Services & therapists', roles: MANAGERS, built: false },
   { id: 'payments', label: 'Payments', roles: MANAGERS, built: false },

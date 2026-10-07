@@ -174,8 +174,12 @@ export async function startLocalBackend(
         );
         const rows = result.rows as any[];
         const scalar = result.fields.length === 1 && result.fields[0].name === fn;
+        // As PostgREST: set-returning functions give an array, others one value or object.
+        const returnsSet = (await db.query<{ s: boolean }>(
+          `select bool_or(p.proretset) as s from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public' and p.proname = $1`, [fn],
+        )).rows[0]?.s;
         res.writeHead(200, { ...cors, 'content-type': 'application/json' });
-        return res.end(JSON.stringify(fn === 'get_available_slots' ? rows : scalar ? rows[0]?.[fn] : rows[0]));
+        return res.end(JSON.stringify(returnsSet ? rows : scalar ? rows[0]?.[fn] : rows[0]));
       } catch (err: any) {
         const status = err.code === '42501' ? (tokenClaims(req.headers.authorization) ? 403 : 401) : 400;
         res.writeHead(status, { ...cors, 'content-type': 'application/json' });

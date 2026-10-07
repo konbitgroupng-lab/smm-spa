@@ -91,10 +91,12 @@ describe('audit coverage', () => {
 
 describe('personal data is not copied into the log', () => {
   it('records only that personal fields changed', async () => {
+    const ada = await one(db, `select id, full_name, email, updated_at::text from customers where email = 'demo.ada@example.com'`);
     await asRole(db, 'authenticated', admin, () =>
-      db.query(`update customers set phone = '+2340000009999', staff_notes = 'Gate code 4411', is_demo = false where email = 'demo.ada@example.com'`));
+      db.query(`select staff_update_customer($1, $2, $3, $4, '+2340000009999', 'Gate code 4411')`, [ada.id, ada.updated_at, ada.full_name, ada.email]));
     const [entry] = await latest('customers');
-    expect(entry.changes).toEqual({ phone: { changed: true }, staff_notes: { changed: true }, is_demo: { old: true, new: false } });
+    expect(entry.action).toBe('customer.updated');
+    expect(entry.changes).toEqual({ phone: { changed: true }, staff_notes: { changed: true } });
 
     const p = await one(db, `select updated_at from profiles where id = $1`, [therapist]);
     await asRole(db, 'authenticated', therapist, () =>
@@ -109,9 +111,9 @@ describe('personal data is not copied into the log', () => {
 
   it('new rows are recorded without their values; removed rows keep only non-personal values', async () => {
     const c = await asRole(db, 'authenticated', admin, () =>
-      one(db, `insert into customers (full_name, email, phone) values ('Walk In', 'walk.in@example.com', '+2348012340000') returning id`));
+      one(db, `select (staff_create_customer('Walk In', 'walk.in@example.com', '+2348012340000')).id`));
     const [created] = await latest('customers');
-    expect(created).toMatchObject({ action: 'insert', entity_id: c.id, changes: {} });
+    expect(created).toMatchObject({ action: 'customer.created', entity_id: c.id, changes: {} });
 
     await db.query(`delete from customers where id = $1`, [c.id]); // only server-side code may delete
     const [removed] = await latest('customers');

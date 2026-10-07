@@ -48,7 +48,8 @@ export interface StaffBackend {
 
 /** Errors the staff app knows how to explain; anything else is 'unknown'. */
 export class StaffError extends Error {
-  constructor(public code: string) {
+  /** `detail` names the rule behind schedule_rule / slot_unavailable, when the server gives one. */
+  constructor(public code: string, public detail?: string) {
     super(code);
   }
 }
@@ -86,11 +87,48 @@ const MESSAGES: Record<string, string> = {
   invalid_profile: 'Check the name and phone number.',
   last_owner: 'There must always be at least one active owner.',
   not_found: 'This record no longer exists.',
+  // Appointments and customers (Phase 5b)
+  slot_unavailable: 'That time is no longer free for this therapist.',
+  schedule_rule: 'That time is outside the booking rules.',
+  invalid_status: 'This booking can no longer be changed that way.',
+  appointment_started: 'This appointment has already started and cannot be moved.',
+  start_in_past: 'Choose a time in the future.',
+  not_started: 'This appointment has not started yet.',
+  invalid_time: 'Choose a date and time.',
+  invalid_contact: 'Check the contact name and phone number.',
+  invalid_customer: 'Check the customer details: a name and an email or phone number are needed.',
+  invalid_booking: 'Notes are too long.',
+  address_required: 'An address is needed for an in-home booking.',
+  address_not_applicable: 'Only in-home bookings have an address.',
+  dispatch_zone_required: 'Choose the area for an in-home booking.',
+  therapist_unavailable: 'That therapist does not offer this treatment or is not available.',
+  service_unavailable: 'That treatment is not available.',
+  email_in_use: 'Another customer already has this email address.',
+  invalid_source: 'Online bookings are settled by their online payment and cannot be changed here.',
+  invalid_range: 'Choose a shorter period.',
+  not_configured: 'Booking settings are missing.',
+};
+
+/** Why a time is outside the booking rules (schedule_rule / slot_unavailable details). */
+export const RULE_MESSAGES: Record<string, string> = {
+  slot_taken: 'it overlaps another booking or a guest reservation',
+  too_soon: 'it is sooner than the minimum notice',
+  too_far: 'it is further ahead than bookings are taken',
+  off_grid: 'it does not start on the booking grid',
+  outside_business_hours: 'it is outside opening hours',
+  blackout: 'the business is closed then',
+  outside_shift: 'it is outside the therapist\'s shift',
+  on_break: 'it falls in the therapist\'s break',
+  time_off: 'the therapist is off then',
 };
 
 export function messageFor(err: unknown): string {
   const code = err instanceof StaffError ? err.code : 'unknown';
-  return MESSAGES[code] ?? 'Something went wrong. Try again.';
+  const base = MESSAGES[code] ?? 'Something went wrong. Try again.';
+  if (err instanceof StaffError && err.detail && RULE_MESSAGES[err.detail] && (code === 'schedule_rule' || code === 'slot_unavailable')) {
+    return `${code === 'schedule_rule' ? 'That time is outside the booking rules' : 'That time cannot be booked'}: ${RULE_MESSAGES[err.detail]}.`;
+  }
+  return base;
 }
 
 // ---------------------------------------------------------------------------
@@ -108,9 +146,9 @@ function authError(error: AuthError | Error): StaffError {
 }
 
 /** Database errors raised by the staff functions carry a known code as their message. */
-function dbError(error: { message: string; code?: string }): StaffError {
+export function dbError(error: { message: string; code?: string; details?: string | null }): StaffError {
   if (error.code === '42501') return new StaffError('not_authorized');
-  return new StaffError(MESSAGES[error.message] ? error.message : 'unknown');
+  return new StaffError(MESSAGES[error.message] ? error.message : 'unknown', error.details ?? undefined);
 }
 
 const AUTH_EVENTS: AuthEvent[] = ['SIGNED_IN', 'SIGNED_OUT', 'TOKEN_REFRESHED', 'USER_UPDATED', 'PASSWORD_RECOVERY'];

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { AuthLink } from './lib/authLink';
 import { accessFor, type Access, type StaffBackend } from './lib/backend';
+import type { StaffOps } from './lib/ops';
 import { StaffShell } from './StaffShell';
 import { ForgotPasswordScreen, NoAccessScreen, SetPasswordScreen, SignInScreen } from './screens/AuthScreens';
 import { AuthCard, PrimaryButton } from './ui';
@@ -13,8 +14,12 @@ const EXPIRED_LINK = 'That link is invalid or has already been used. Sign in, or
  * The staff app: who is signed in decides what is shown, and the database
  * decides who is staff (staff_whoami). Nothing here grants access by itself.
  */
-export default function StaffApp({ backend, initialLink, resetRedirect }: {
+/** Re-checks on tab focus are at most this often. */
+export const FOCUS_RECHECK_MS = 15_000;
+
+export default function StaffApp({ backend, ops, initialLink, resetRedirect }: {
   backend: StaffBackend | null;
+  ops: StaffOps | null;
   /** What the address bar carried when the app opened (read before the client cleared it). */
   initialLink: AuthLink;
   /** Where password-reset emails send people back to. */
@@ -27,8 +32,11 @@ export default function StaffApp({ backend, initialLink, resetRedirect }: {
   const [email, setEmail] = useState<string | null>(null);
   const [notice, setNotice] = useState(initialLink?.kind === 'expired' ? EXPIRED_LINK : '');
   const latest = useRef(0);
+  const viewKind = useRef(view.kind);
+  viewKind.current = view.kind;
 
-  const refresh = useCallback(async () => {
+  /** `quiet`: a background re-check; a failure leaves the current screen as it is. */
+  const refresh = useCallback(async ({ quiet = false } = {}) => {
     if (!backend) return;
     const call = ++latest.current; // a slower, older answer must not overwrite a newer one
     try {
@@ -50,9 +58,30 @@ export default function StaffApp({ backend, initialLink, resetRedirect }: {
       const who = await backend.whoami();
       if (call === latest.current) setView(accessFor(who));
     } catch {
-      if (call === latest.current) setView({ kind: 'error' });
+      if (call === latest.current && !quiet) setView({ kind: 'error' });
     }
   }, [backend]);
+
+  // Coming back to the tab re-asks the database who this is, so a role change
+  // or deactivation shows without waiting for the next token refresh. (The
+  // database refuses a deactivated account at once either way.)
+  useEffect(() => {
+    if (!backend) return;
+    let last = Date.now();
+    const recheck = () => {
+      if (document.visibilityState === 'hidden') return;
+      if (!['ready', 'inactive', 'mfa_required'].includes(viewKind.current)) return;
+      if (Date.now() - last < FOCUS_RECHECK_MS) return;
+      last = Date.now();
+      void refresh({ quiet: true });
+    };
+    window.addEventListener('focus', recheck);
+    document.addEventListener('visibilitychange', recheck);
+    return () => {
+      window.removeEventListener('focus', recheck);
+      document.removeEventListener('visibilitychange', recheck);
+    };
+  }, [backend, refresh]);
 
   useEffect(() => {
     if (!backend) return;
@@ -65,7 +94,7 @@ export default function StaffApp({ backend, initialLink, resetRedirect }: {
         return;
       }
       if (event === 'PASSWORD_RECOVERY') pendingLink.current = 'recovery';
-      void refresh();
+      void refresh({ quiet: event === 'TOKEN_REFRESHED' });
     });
   }, [backend, refresh]);
 
@@ -81,7 +110,7 @@ export default function StaffApp({ backend, initialLink, resetRedirect }: {
     setView({ kind: 'signed_out' });
   }
 
-  if (!backend) {
+  if (!backend || !ops) {
     return (
       <AuthCard title="Staff area unavailable">
         <p className="text-sm">The staff app is not connected to a backend in this build.</p>
@@ -133,6 +162,6 @@ export default function StaffApp({ backend, initialLink, resetRedirect }: {
     case 'mfa_required':
       return <NoAccessScreen reason={view.kind} onSignOut={() => void signOut()} />;
     case 'ready':
-      return <StaffShell backend={backend} who={view.who} role={view.role} email={email} onRefresh={refresh} onSignOut={() => void signOut()} />;
+      return <StaffShell backend={backend} ops={ops} who={view.who} role={view.role} email={email} onRefresh={refresh} onSignOut={() => void signOut()} />;
   }
 }

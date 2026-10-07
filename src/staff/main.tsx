@@ -4,6 +4,7 @@ import { isSupabaseConfigured } from '../lib/env';
 import { readAuthLink } from './lib/authLink';
 import { createSupabaseBackend } from './lib/backend';
 import { staffClient } from './lib/client';
+import { createSupabaseOps } from './lib/ops';
 import StaffApp from './StaffApp';
 import '../index.css';
 
@@ -11,9 +12,10 @@ import '../index.css';
 // tokens from the address bar and removes them.
 const initialLink = readAuthLink(window.location.hash);
 const backend = isSupabaseConfigured ? createSupabaseBackend(staffClient()) : null;
+const ops = isSupabaseConfigured ? createSupabaseOps(staffClient()) : null;
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <StaffApp backend={backend} initialLink={initialLink} resetRedirect={`${window.location.origin}/staff/`} />
+    <StaffApp backend={backend} ops={ops} initialLink={initialLink} resetRedirect={`${window.location.origin}/staff/`} />
   </StrictMode>,
 );
