@@ -19,6 +19,7 @@ const REFUND_REASONS: Record<string, string> = {
   schedule_changed: 'Our schedule changed for that time before your payment reached us.',
   service_changed: 'The treatment changed before your payment reached us.',
   therapist_unavailable: 'The therapist is no longer available for this treatment.',
+  zone_unavailable: 'We no longer offer in-home treatments in your area.',
   amount_mismatch: 'The amount received did not match your booking.',
   currency_mismatch: 'Your payment was made in a different currency.',
   duplicate_payment: 'This booking had already been paid for, so this payment was not needed.',

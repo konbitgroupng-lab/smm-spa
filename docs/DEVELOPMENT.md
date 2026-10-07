@@ -171,6 +171,7 @@ A succeeded payment has either `appointment_id` set, or `needs_refund = true` wi
 | `schedule_changed` | A scheduling rule no longer allows the slot. `needs_refund_detail` names it: `time_off`, `blackout`, `on_break`, `outside_shift`, `outside_business_hours`, `too_soon`, `too_far`, `off_grid` |
 | `service_changed` | The service was withdrawn (`inactive`) or its duration or buffer changed (`duration`) after the slot was held |
 | `therapist_unavailable` | The therapist was deactivated or no longer offers the service |
+| `zone_unavailable` | An in-home booking's area was deactivated before the payment completed (5c) |
 
 A late payment is still honoured when the slot is free: the insert goes through the same exclusion constraints and guard triggers as every other reservation, so it can never displace one.
 
@@ -368,7 +369,7 @@ Migration `20261012000100_staff_schedule_catalogue.sql`.
 
 **Every change goes through a function** (owner/admin) that:
 
-1. takes the schedule-rules lock exclusively, before anything else; payments, staff bookings and reschedules hold it shared, so they either finish before the change or see it;
+1. takes the schedule-rules lock exclusively, before anything else; guest reservations, payments, staff bookings and reschedules hold it shared, so they either finish before the change (and are counted in its warning) or see it;
 2. checks the version the screen showed (`updated_at` for services, therapists and areas; a fingerprint of the rows for opening hours, a therapist's week, a therapist's treatments and a package's contents);
 3. makes the change, labelled for the audit log;
 4. compares conflicts before and after. If the change puts any future booking in conflict, or would make a live guest reservation unpayable, it is refused with `confirmation_required` and the affected bookings, unless it is sent again with `p_confirm` and a reason. The acceptance is audited as `schedule.conflicts_accepted` (booking ids and reasons only, no names).
@@ -485,7 +486,7 @@ Decide or fix these in the booking-funnel and payment phases:
 - **Refunds are manual.** Payments flagged `needs_refund` must be refunded by the owner in the Paystack dashboard; the resulting Paystack events update the record. Nothing alerts staff to a flagged payment until the Phase 5 dashboard exists.
 - **Several partial refunds.** Each payment stores one refund reference and a running total; a per-refund history table is left for the refund workflow.
 - **Deposit balances.** A deposit confirms the booking; collecting the remainder is not handled online.
-- **Rule changes and unpaid holds.** A rule change is always caught when the hold is paid for. Creating a hold (`request_booking_hold`) does not take the schedule-rules lock, so a hold can be created in the same instant a rule changes; it then fails at payment and the payment is flagged for refund.
+- **Rule changes and unpaid holds.** Resolved in 5c: creating a hold (`request_booking_hold`) takes the schedule-rules lock (shared), so a reservation and a rule change never straddle each other. A hold made before a change that rules it out is still refused at payment and the payment flagged for refund.
 - **Price changes after payment starts.** The price is fixed when payment starts; a later catalogue price change does not affect that booking.
 - **Direct database access is a separate, privileged trust boundary.** Everything in this guide about who may do what applies to the app and the API. Anyone with direct SQL access (the Supabase SQL editor, the database password, the service-role key, a Supabase dashboard login) works outside it and must be limited to the owner and trusted operators. One example: the named action and reason on an audit entry come from transaction settings that staff functions set; someone with direct SQL access could set them by hand (the actor recorded is still accurate). Through the API, signed-in users cannot set them.
 - **Staff session checks.** The staff app re-checks access on sign-in, on token refresh (about hourly) and when the tab regains focus (at most every 15 seconds). The database refuses a deactivated account at once; the app may show its screens until the next check.
@@ -505,8 +506,8 @@ Decide or fix these in the booking-funnel and payment phases:
 
 ## Phase 5c decisions and limits
 
-- **Guest reservations are not serialised with schedule changes.** Creating a hold (`request_booking_hold`) still does not take the schedule-rules lock (see open issues). A reservation made in the same instant as a schedule change may not be in the warning; it is still refused at payment by the re-check.
-- **In-home areas are not re-checked at payment.** A guest mid-payment when their area is deactivated still gets the booking; it then appears as a conflict (`zone_inactive`).
+- **Hardening (migration `20261012000200_schedule_hardening.sql`).** Guest reservations take the schedule-rules lock (shared) before deciding, so they are serialised with schedule and catalogue changes. The payment re-check also requires an in-home booking's area to be active; otherwise no booking is made and the payment is flagged `zone_unavailable`. Both functions are otherwise unchanged.
+- **Booking rules never create conflicts.** Minimum notice, booking window, grid and hold length affect new bookings only.
 - **Overridden reschedules stay listed.** A booking moved with a rule override remains in Conflicts while the rule it overrode applies.
 - **One shift and one break per day in the screens.** The database allows more; the weekly editor shows and saves one of each.
 

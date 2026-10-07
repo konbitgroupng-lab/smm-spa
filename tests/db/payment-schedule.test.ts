@@ -279,3 +279,63 @@ describe('the Phase 2 rule set is unchanged', () => {
     }
   });
 });
+
+describe('the in-home area is re-checked at payment (5c hardening)', () => {
+  /** An in-home hold in `zoneKey`, with customer details and a started payment. */
+  async function payingAtHome(zoneKey: string) {
+    const slot = nextSlot();
+    const zone = (await one(db, `select id from dispatch_zones where key = $1`, [zoneKey])).id;
+    const hold = await service(() => one(db, `select * from request_booking_hold($1, $2, $3, 'mobile', $4)`, [swedish, slot.start.toISOString(), A, zone]));
+    await service(() => db.query(`select attach_customer_to_hold($1, 'Home Guest', $2, '+2348000000000')`, [hold.hold_token, `home${++guest}@example.com`]));
+    const { r } = await service(() => one(db, `select begin_hold_payment($1, 'paystack', true, '12 Akin Adesola Street') as r`, [hold.hold_token]));
+    return { slot, hold, zone, reference: r.reference as string, amount: Number(r.amount_minor) };
+  }
+  const succeedFor = async (p: { reference: string; amount: number }) =>
+    (await service(() => one(db, `select record_payment_result('paystack', $1, 'success', $2, 'NGN', now(), 'TX-2', 'card') as r`, [p.reference, p.amount]))).r;
+
+  it('an area deactivated before the payment completes: no booking, payment flagged zone_unavailable', async () => {
+    const p = await payingAtHome('vi');
+    await db.query(`update dispatch_zones set is_active = false where id = $1`, [p.zone]);
+    try {
+      expect(await succeedFor(p)).toMatchObject({ status: 'refund_required', reason: 'zone_unavailable', appointment: null });
+      expect(await one(db, `select needs_refund, needs_refund_reason, needs_refund_detail, appointment_id from payments where provider_reference = $1`, [p.reference]))
+        .toEqual({ needs_refund: true, needs_refund_reason: 'zone_unavailable', needs_refund_detail: null, appointment_id: null });
+      expect(await rows(db, `select id from appointments where hold_id = $1`, [p.hold.id])).toEqual([]);
+    } finally {
+      await db.query(`update dispatch_zones set is_active = true where id = $1`, [p.zone]);
+    }
+  });
+
+  it('an active area, even with a changed fee, confirms with the fee the guest paid', async () => {
+    const p = await payingAtHome('lekki');
+    await db.query(`update dispatch_zones set fee_minor = fee_minor + 500000 where id = $1`, [p.zone]);
+    try {
+      expect(await succeedFor(p)).toMatchObject({ status: 'confirmed' });
+      const a = await one(db, `select dispatch_fee_minor, total_minor from appointments where hold_id = $1`, [p.hold.id]);
+      expect(Number(a.dispatch_fee_minor)).toBe(1000000);
+      expect(Number(a.total_minor)).toBe(p.amount);
+    } finally {
+      await db.query(`update dispatch_zones set fee_minor = fee_minor - 500000 where id = $1`, [p.zone]);
+    }
+  });
+
+  it('a studio booking is unaffected by any area change', async () => {
+    const p = await paying();
+    await db.query(`update dispatch_zones set is_active = false`);
+    try {
+      await expectConfirmed(p);
+    } finally {
+      await db.query(`update dispatch_zones set is_active = true`);
+    }
+  });
+});
+
+describe('guest reservations take the schedule-rules lock (5c hardening)', () => {
+  it('request_booking_hold takes it shared, before its availability decision', async () => {
+    const src = (await one(db, `select prosrc from pg_proc where proname = 'request_booking_hold'`)).prosrc as string;
+    const lock = src.indexOf('pg_advisory_xact_lock_shared(private.schedule_rules_lock_key())');
+    expect(lock).toBeGreaterThan(-1);
+    expect(lock).toBeLessThan(src.indexOf('private.lock_therapist'));
+    expect(lock).toBeLessThan(src.indexOf('private.slot_block_reason'));
+  });
+});

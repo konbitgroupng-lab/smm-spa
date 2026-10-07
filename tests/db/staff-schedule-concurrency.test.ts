@@ -294,6 +294,51 @@ describe('deactivations with future bookings', () => {
   });
 });
 
+describe('5c hardening: reservations and in-home areas', () => {
+  it('a guest reservation and an unconfirmed schedule change never straddle each other', async () => {
+    let changeWon = 0;
+    let holdWon = 0;
+    for (const time of ['09:00', '10:30', '14:00', '15:30', '17:00']) {
+      const start = at(upcoming(MON, 3), time);
+      const [change, hold] = await race([
+        asAdmin(`select staff_add_time_off($1, $2, $3, 'Leave') as r`, [therapists[0], start.toISOString(), new Date(start.getTime() + 3_600_000).toISOString()]),
+        guestHold(start, therapists[0]),
+      ]);
+      // Exactly one lands. The loser saw the winner's committed state.
+      expect([change.ok, hold.ok].filter(Boolean)).toHaveLength(1);
+      if (change.ok) {
+        changeWon++;
+        expect(hold).toMatchObject({ error: 'slot_unavailable', detail: 'time_off' });
+      } else {
+        holdWon++;
+        expect(change).toMatchObject({ error: 'confirmation_required' });
+        expect(JSON.parse((change as any).detail)).toEqual({ appointments: [], reservations: 1 });
+      }
+    }
+    expect(changeWon + holdWon).toBe(5);
+  });
+
+  it('an in-home area deactivated while a guest\'s payment completes: a listed booking, or a payment flagged zone_unavailable', async () => {
+    const [{ id: lekki }] = await q(`select id from dispatch_zones where key = 'lekki'`);
+    const start = at(upcoming(SAT, 3), '10:30');
+    const [hold] = await q(`select * from request_booking_hold($1, $2, $3, 'mobile', $4)`, [swedish, start.toISOString(), therapists[2], lekki]);
+    await q(`select attach_customer_to_hold($1, 'Home Guest', 'home.race@example.com', '+2348037770002')`, [hold.hold_token]);
+    const [{ p }] = await q(`select begin_hold_payment($1, 'mock', true, '5 Admiralty Way') as p`, [hold.hold_token]);
+    const [change, payment] = await race([await saveZone(lekki, false), paymentSucceeds(p.reference, Number(p.amount_minor))]);
+    expect(change.ok && payment.ok).toBe(true);
+    const row = await paymentRow(p.reference);
+    if (row.appointment_id) {
+      expect(await appointment(row.appointment_id)).toMatchObject({ status: 'confirmed', dispatch_zone_id: lekki });
+      expect(await conflictsOf(row.appointment_id)).toEqual(['zone_inactive']);
+      expect(row.needs_refund).toBe(false);
+    } else {
+      expect(row).toMatchObject({ status: 'succeeded', needs_refund: true, needs_refund_reason: 'zone_unavailable' });
+      expect(await q(`select id from appointments where hold_id = $1`, [hold.id])).toEqual([]);
+    }
+    expect((await one(await saveZone(lekki, true))).ok).toBe(true);
+  });
+});
+
 describe('after every race', () => {
   it('no booking was cancelled or moved by a schedule change, and nothing overlaps', async () => {
     expect(await q(`select id from appointments where status = 'cancelled'`)).toEqual([]);
