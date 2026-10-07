@@ -3,8 +3,8 @@ import { formatMoney } from '../lib/money';
 import { attachCustomer, createHold, getAvailableSlots, releaseHold, type BookingHold, type Slot } from '../services/bookingService';
 import { getCatalog, getTherapists, type CatalogService, type CatalogTherapist } from '../services/catalogService';
 import { startPayment, type PaymentStart } from '../services/paymentService';
-import DemoPaymentNotice from './DemoPaymentNotice';
-import { rememberPendingPayment } from './pendingPayment';
+import DemoPaymentNotice from '../booking/components/DemoPaymentNotice';
+import { rememberPendingPayment } from '../booking/pendingPayment';
 import PrototypeShell, { Button, ErrorMessage, formatSlot, messageFor, Panel } from './PrototypeShell';
 
 // End-to-end booking flow on the real backend, without the public site's

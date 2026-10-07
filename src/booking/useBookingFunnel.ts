@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef } from 'react';
-import { rememberPendingPayment } from '../prototype/pendingPayment';
+import { rememberPendingPayment } from './pendingPayment';
 import { attachCustomer, createHold, getAvailableSlots, releaseHold } from '../services/bookingService';
 import { startPayment } from '../services/paymentService';
 import { DEFAULT_TIMEZONE } from './dates';

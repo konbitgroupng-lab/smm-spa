@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { startPayment, verifyPayment, type PaymentOutcome } from '../services/paymentService';
-import DemoPaymentNotice from './DemoPaymentNotice';
-import { forgetPendingPayment, recallPendingPayment, rememberPendingPayment } from './pendingPayment';
+import DemoPaymentNotice from '../booking/components/DemoPaymentNotice';
+import { forgetPendingPayment, recallPendingPayment, rememberPendingPayment } from '../booking/pendingPayment';
 import PrototypeShell, { Button, ErrorMessage, formatSlot, messageFor, Panel } from './PrototypeShell';
 
 // Where the checkout sends the guest back (?reference=...). The outcome shown
