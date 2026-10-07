@@ -165,6 +165,52 @@ export async function getCatalog(): Promise<Catalog> {
   return mapCatalog(rows, itemsResult.data as PackageItemRow[], media);
 }
 
+export interface DispatchZone {
+  id: string;
+  key: string;
+  name: string;
+  /** Travel fee in minor units. */
+  feeMinor: number;
+  formattedFee: string;
+}
+
+export interface DispatchZoneRow {
+  id: string;
+  key: string;
+  name: string;
+  fee_minor: number;
+}
+
+export function mapDispatchZone(row: DispatchZoneRow, currency = 'NGN'): DispatchZone {
+  const feeMinor = Number(row.fee_minor);
+  return { id: row.id, key: row.key, name: row.name, feeMinor, formattedFee: formatMoney(feeMinor, currency) };
+}
+
+/** Active travel-fee zones for mobile appointments, in display order. Empty without Supabase. */
+export async function getDispatchZones(): Promise<DispatchZone[]> {
+  if (!isSupabaseConfigured) return [];
+  const { data, error } = await requireSupabase()
+    .from('dispatch_zones')
+    .select('id, key, name, fee_minor')
+    .eq('is_active', true)
+    .order('sort_order');
+  if (error) throw error;
+  return (data as DispatchZoneRow[]).map((row) => mapDispatchZone(row));
+}
+
+/** Which therapists offer which services (therapist id -> service ids). Empty without Supabase. */
+export async function getTherapistServiceLinks(): Promise<Map<string, Set<string>>> {
+  const links = new Map<string, Set<string>>();
+  if (!isSupabaseConfigured) return links;
+  const { data, error } = await requireSupabase().from('therapist_services').select('therapist_id, service_id');
+  if (error) throw error;
+  for (const row of data as { therapist_id: string; service_id: string }[]) {
+    if (!links.has(row.therapist_id)) links.set(row.therapist_id, new Set());
+    links.get(row.therapist_id)!.add(row.service_id);
+  }
+  return links;
+}
+
 /** Active therapists, in display order. */
 export async function getTherapists(): Promise<CatalogTherapist[]> {
   if (!isSupabaseConfigured) {

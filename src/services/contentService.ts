@@ -69,6 +69,12 @@ export interface BusinessSettings {
   paymentMode: 'deposit' | 'full';
   depositPercent: number;
   holdMinutes: number;
+  /** Bookings may be made this many days ahead (local calendar days). */
+  maxAdvanceDays: number;
+  /** Minimum notice before a start time. */
+  minLeadMinutes: number;
+  /** Start times are multiples of this, from local midnight. */
+  slotIntervalMinutes: number;
 }
 
 /** Non-sensitive business configuration. Payment secrets are never stored here. */
@@ -85,5 +91,8 @@ export async function getBusinessSettings(): Promise<BusinessSettings | null> {
     paymentMode: data.payment_mode,
     depositPercent: data.deposit_percent,
     holdMinutes: data.hold_minutes,
+    maxAdvanceDays: data.max_advance_days,
+    minLeadMinutes: data.min_lead_minutes,
+    slotIntervalMinutes: data.slot_interval_minutes,
   };
 }
