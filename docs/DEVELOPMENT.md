@@ -10,7 +10,8 @@ SMM is a React 19 + Vite + Tailwind site backed by Supabase (Postgres, Auth, Row
 | Database schema, RLS, storage bucket | Done (Phase 1), as migrations in `supabase/migrations/`. |
 | Data-access layer (`src/services/`) | Done. Not yet wired into the page components (Phase 4). |
 | Availability engine, validated holds, public `booking` endpoint | Done (Phase 2). |
-| Payments (Paystack behind a `PaymentGateway` interface) | Done (Phase 3), tested against a simulated Paystack. Not yet run with real Paystack test credentials. |
+| Payments (`PaymentGateway` interface) | Done (Phase 3 prototype). Runs on the **demo gateway**: no real money moves. The Paystack adapter is built and tested but not connected; see "Future Paystack integration". |
+| Booking flow prototype (`?view=booking-prototype`) | Development page that runs the whole flow on the real backend with demo payments. Replaced by the public funnel in Phase 4. |
 | Booking funnel, admin dashboard, CMS screens | Phases 4-6. |
 
 ## Quick start
@@ -38,7 +39,9 @@ Copy `.env.example` to `.env.local` and fill it from the `db:start` output:
 | `SUPABASE_URL` | local scripts | n/a |
 | `SUPABASE_SERVICE_ROLE_KEY` | local scripts, later Edge Functions | **No. Server only.** It bypasses RLS. |
 | `DEMO_USER_PASSWORD` | `db:seed-users` | **No.** Optional. |
-| `PAYSTACK_SECRET_KEY` (Phase 3) | Edge Functions | **No. Server only.** |
+| `VITE_ENABLE_BOOKING_PROTOTYPE` | frontend | Yes. `true` serves the booking prototype page outside development builds. |
+| `PAYMENT_PROVIDER` | Edge Functions | Server setting: `mock` (demo payments) or `paystack`. |
+| `PAYSTACK_SECRET_KEY` | Edge Functions, only with `PAYMENT_PROVIDER=paystack` | **No. Server only.** Not needed until Paystack is connected. |
 
 Anything prefixed `VITE_` is compiled into the public JavaScript bundle, so a secret must never get that prefix. In production, server-only values are set with `supabase secrets set`; they are never stored in the database or editable from the admin dashboard.
 
@@ -184,11 +187,66 @@ A repeat of an already processed delivery is acknowledged without doing anything
 | Function | Caller | Purpose |
 | --- | --- | --- |
 | `payments` (`initialize`, `verify`) | Guests | Start a payment; get its verified outcome (`confirmed`, `pending`, `failed`, `refund_required`) |
-| `paystack-webhook` | Paystack | Signed event receiver |
+| `paystack-webhook` | The payment provider | Signed event receiver |
+| `demo-checkout` | The demo checkout page | The demo provider's checkout backend. Answers 404 unless `PAYMENT_PROVIDER=mock`. Never deploy to production. |
 
-`supabase/functions/_shared/payments/gateway.ts` defines `PaymentGateway`; `paystack.ts` implements it. Handlers use only the interface.
+`supabase/functions/_shared/payments/gateway.ts` defines `PaymentGateway`. Two classes implement it: `PaystackAdapter` (`paystack.ts`) and `MockPaymentGateway` (`mock.ts`). `factory.ts` picks one from `PAYMENT_PROVIDER`, which has no default: a function with it unset refuses to start rather than take demo payments by accident. Handlers use only the interface.
 
 `PAYSTACK_SECRET_KEY` is a function secret and nothing else: it is never in the database, the browser bundle or an admin screen. Test or live mode is read from the key (`sk_test_` / `sk_live_`) and stored on each payment as `is_test`. `business_settings.online_payment_enabled` must be true for payments to start.
+
+### Demo payments (the current mode)
+
+Until the client's Paystack account is connected, the functions run with `PAYMENT_PROVIDER=mock`. Everything except the provider is real: holds, server-side amounts, `record_payment_result()`, idempotency, locks, schedule re-checks and refund flags behave exactly as they will with Paystack.
+
+| Piece | What it does |
+| --- | --- |
+| `MockPaymentGateway` | Implements `PaymentGateway`. Speaks Paystack's formats (transaction objects, `charge.success` and refund events, HMAC-SHA512 signatures in `x-demo-signature`), so the same parsing and mapping code handles both. Always test mode. |
+| `mock_provider.transactions` | The demo provider's ledger: plays Paystack's servers. Only reachable through `mock_provider_*` functions, which are server-only. |
+| Demo checkout page (`?view=demo-checkout&reference=…`) | Plays Paystack's hosted checkout. The guest chooses: pay, declined card, pending bank transfer, or cancel. A testing option makes the provider send its notification twice. |
+| `demo-checkout` function | Records the choice in the ledger, then delivers a signed `charge.success` to the real webhook handler in-process, as Paystack would. It never touches payments or appointments directly. |
+| Return page (`?view=payment-return&reference=…`) | Calls `verifyPayment` and shows the server's outcome; offers a retry after a failure. |
+| Booking prototype (`?view=booking-prototype`) | Service, therapist, date, time, details, payment, on the real backend. Development builds only, unless `VITE_ENABLE_BOOKING_PROTOTYPE=true`. |
+
+Safeguards:
+
+- Every page involved shows "Demo Payment — No real money will be charged." The flag comes from the server (`demo` in the `payments` responses), not from the browser.
+- Demo payments are stored with `provider = 'mock'` and `is_demo = true`, and so are the appointments they create, so the demo purge removes them and reports can exclude them.
+- The database refuses demo payments unless `business_settings.allow_demo_payments` is true. The column defaults to false; only the development seed turns it on. A production database therefore rejects demo payments even if a function were misconfigured.
+- The demo webhook secret is derived from the project's service-role key, so the functions agree on it without another secret, and it never reaches the browser.
+
+To run the prototype on a hosted development project: push the migrations, load the seed, deploy `booking`, `payments`, `paystack-webhook` and `demo-checkout`, set `PAYMENT_PROVIDER=mock`, `ALLOWED_ORIGINS` and `RATE_LIMIT_SALT` as function secrets, then open `http://localhost:3000/?view=booking-prototype` with `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` pointing at that project.
+
+### Future Paystack integration
+
+No domain code changes: the switch is configuration plus one end-to-end test. Use the client's **test** keys first; switch to live keys only after the test run passes.
+
+1. **Merchant account.** Confirm the client's Paystack account is approved for NGN card payments, and note whether test and live modes are both active.
+2. **Secret key (server only).** In the Paystack dashboard, Settings > API Keys & Webhooks, copy the secret key (`sk_test_…` first, `sk_live_…` at launch). Set it as a function secret, never anywhere else:
+
+   ```bash
+   npx supabase secrets set PAYMENT_PROVIDER=paystack PAYSTACK_SECRET_KEY=sk_test_...
+   ```
+
+   The adapter refuses anything that is not a secret key and reads test or live mode from it; each payment records which mode it used in `is_test`.
+3. **Webhook.** On the same Paystack page, set the webhook URL (one per mode) to:
+
+   ```
+   https://<project-ref>.supabase.co/functions/v1/paystack-webhook
+   ```
+
+   Paystack signs webhooks with the secret key itself, so there is no separate webhook secret to configure. Optionally restrict the function to Paystack's published webhook IP addresses.
+4. **Deployment.** Deploy `booking`, `payments` and `paystack-webhook` (`npx supabase functions deploy booking payments paystack-webhook --use-api`). Do not deploy `demo-checkout` to production. Keep `ALLOWED_ORIGINS` set to the live site's origin and `RATE_LIMIT_SALT` set.
+5. **Database settings.** `online_payment_enabled = true`, `allow_demo_payments = false`, and `payment_mode` / `deposit_percent` as the owner decides.
+6. **Frontend.** Nothing to change: the `payments` function returns Paystack's hosted checkout address instead of the demo page, and `demo` becomes false, so the demo notice disappears. The return page is the same (`?view=payment-return`, or its Phase 4 equivalent).
+7. **End-to-end test with real Paystack test mode.** With Paystack's test cards:
+   - a successful card, confirmed through both `verify` and the webhook;
+   - a declined card, then a retry;
+   - a webhook redelivery from the Paystack dashboard, which must change nothing;
+   - a payment completed after the hold expired;
+   - a refund issued from the Paystack dashboard, recorded through the refund events.
+
+   Compare the real response and event payloads with the simulated ones (`tests/support/fake-paystack.ts`) and update the adapter or the simulation if they differ. `tests/functions/gateway-contract.test.ts` then runs the same scenarios against both.
+8. **Go live.** Replace the test key with the live key, register the live webhook URL, make one small real payment and refund it, and remove demo data with `supabase/snippets/purge_demo_data.sql`.
 
 ## Authentication and authorization
 
@@ -217,7 +275,9 @@ One public bucket, `site-media` (5 MB limit; JPEG, PNG, WebP, AVIF), with folder
 - `authService`: staff sign-in, sign-out, password reset, current profile.
 - `appointmentsService`: staff reads of appointments and customers; admin customer creation.
 - `bookingService`: guest availability (`getAvailableSlots`) and hold actions through the `booking` function. Failures throw `BookingError` with the codes above.
-- `paymentService`: `startPayment` and `verifyPayment` through the `payments` function. Only a `confirmed` outcome from `verifyPayment` means a booking exists.
+- `paymentService`: `startPayment` and `verifyPayment` through the `payments` function. Only a `confirmed` outcome from `verifyPayment` means a booking exists. The `*DemoCheckout` functions drive the demo checkout page.
+
+`src/prototype/` holds the development pages (booking prototype, demo checkout, payment return), selected by `?view=` in `src/main.tsx` and loaded only when used, so the public site's bundle is unchanged.
 
 `localStorage` must not become a source of truth for any of this. The in-page booking form in `src/App.tsx` still saves to `localStorage`; it is replaced in Phase 4.
 
@@ -242,6 +302,10 @@ One public bucket, `site-media` (5 MB limit; JPEG, PNG, WebP, AVIF), with folder
 | `tests/functions/payments-handler.test.ts` | The `payments` and `paystack-webhook` handlers end to end: database, adapter and simulated Paystack |
 | `tests/db/payments-concurrency.test.ts` | Payment races on real PostgreSQL: duplicate webhooks, webhook against verify, late payment against a new guest, rule changes in progress |
 | `tests/db/payment-schedule.test.ts` | Each scheduling rule changed after a hold: the paid hold is refused with the rule named; unrelated changes and time passing are not |
+| `tests/functions/gateway-contract.test.ts` | The same payment scenarios against both gateways (Paystack adapter and demo gateway): proves the demo exercises the same invariants |
+| `tests/functions/demo-checkout.test.ts` | The demo checkout backend, the opt-in switch, the provider selection, and the demo provider's access boundary |
+| `tests/e2e/booking-payment-prototype.test.ts` | The prototype flow through the frontend's own service modules over HTTP (`tests/support/local-backend.ts`), plus page routing |
+| `tests/db/mock-payments-concurrency.test.ts` | Demo-payment races on real PostgreSQL |
 
 Limits: Supabase Auth itself (login, password reset emails), real Storage uploads, the Deno entry point `index.ts`, the pg_cron schedule and PostgREST's handling of the RPC calls are not covered; check those against a local or hosted Supabase project.
 
@@ -250,7 +314,8 @@ Limits: Supabase Auth itself (login, password reset emails), real Storage upload
 Decide or fix these in the booking-funnel and payment phases:
 
 - **Mobile travel time.** A mobile appointment blocks only the service duration and the normal turnover buffer; no extra travel time is reserved. Needs the client's input.
-- **Real Paystack not yet exercised.** Phase 3 was tested against a simulated Paystack. Before go-live, run it with the client's Paystack test key (see "Going to a hosted Supabase project") and confirm the response shapes match.
+- **Payments are simulated.** The site runs on the demo gateway. The Paystack adapter has only been tested against a simulated Paystack built from its documentation; follow "Future Paystack integration" before go-live.
+- **Prototype pages are not the public funnel.** `?view=booking-prototype` is a plain development page; the demo checkout and return pages will be restyled or replaced in Phase 4.
 - **Refunds are manual.** Payments flagged `needs_refund` must be refunded by the owner in the Paystack dashboard; the resulting Paystack events update the record. Nothing alerts staff to a flagged payment until the Phase 5 dashboard exists.
 - **Several partial refunds.** Each payment stores one refund reference and a running total; a per-refund history table is left for the refund workflow.
 - **Deposit balances.** A deposit confirms the booking; collecting the remainder is not handled online.
@@ -276,7 +341,6 @@ Decide or fix these in the booking-funnel and payment phases:
    where id = (select id from auth.users where email = 'owner@their-domain');
    ```
 
-4. Deploy the functions and their secrets: `npx supabase functions deploy booking payments paystack-webhook --use-api`, then `npx supabase secrets set ALLOWED_ORIGINS=https://<site> RATE_LIMIT_SALT=<random> PAYSTACK_SECRET_KEY=sk_test_...`. Confirm the `booking-maintenance` job exists under Integrations > Cron.
-   In the Paystack dashboard (Settings > API Keys & Webhooks), set the webhook URL to `https://<project-ref>.supabase.co/functions/v1/paystack-webhook`. Turn payments on with `update public.business_settings set online_payment_enabled = true`.
+4. Deploy the functions and their secrets: `npx supabase functions deploy booking payments paystack-webhook --use-api`, then `npx supabase secrets set ALLOWED_ORIGINS=https://<site> RATE_LIMIT_SALT=<random> PAYMENT_PROVIDER=paystack PAYSTACK_SECRET_KEY=sk_test_...`. Confirm the `booking-maintenance` job exists under Integrations > Cron. Payment setup is covered step by step in "Future Paystack integration".
 5. Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in Vercel. The service-role key is not needed by the site.
 6. Regenerate types once the project exists: `npx supabase gen types typescript --linked > src/lib/database.types.ts`.

@@ -101,87 +101,108 @@ export class PaystackAdapter implements PaymentGateway {
 
   async verify(reference: string): Promise<VerifiedCharge> {
     const { status, json } = await this.#request('GET', `/transaction/verify/${encodeURIComponent(reference)}`);
-    const data = json?.data;
-    if (status >= 300 || json?.status !== true || !data) {
-      // Unknown at Paystack (or not found yet): certainly not paid.
-      return { reference, status: 'pending', amountMinor: null, currency: null, paidAt: null, transactionId: null, channel: null, failureReason: 'not_found' };
-    }
-    // Paystack answers for the reference we asked about; anything else is not proof of payment.
-    const sameReference = data.reference === reference;
-    const provider = String(data.status ?? '');
-    const charge: VerifiedCharge = {
-      reference,
-      status: 'pending',
-      amountMinor: int(data.amount),
-      currency: str(data.currency),
-      paidAt: str(data.paid_at) ?? str(data.paidAt),
-      transactionId: data.id === undefined || data.id === null ? null : String(data.id),
-      channel: str(data.channel),
-      failureReason: null,
-    };
-    if (provider === 'success' && sameReference && charge.amountMinor !== null && charge.currency !== null) {
-      charge.status = 'success';
-    } else if (provider === 'failed' || provider === 'reversed') {
-      charge.status = 'failed';
-      charge.failureReason = str(data.gateway_response) ?? provider;
-    }
-    // abandoned | ongoing | pending | processing | queued: the guest has not paid (yet).
-    return charge;
+    if (status >= 300 || json?.status !== true || !json?.data) return notFound(reference);
+    return chargeFromTransaction(reference, json.data);
   }
 
-  async verifyWebhookSignature(rawBody: string, headers: Headers): Promise<boolean> {
-    const given = hexToBytes(headers.get('x-paystack-signature') ?? '');
-    if (!given || given.length === 0) return false;
-    const expected = hexToBytes(await hmacSha512Hex(this.#secretKey, rawBody))!;
-    return constantTimeEqual(given, expected);
+  verifyWebhookSignature(rawBody: string, headers: Headers): Promise<boolean> {
+    return signatureMatches(this.#secretKey, rawBody, headers.get('x-paystack-signature'));
   }
 
   parseWebhook(rawBody: string): WebhookEvent {
-    const body = JSON.parse(rawBody);
-    const eventType = str(body?.event);
-    const data = body?.data;
-    if (!eventType || typeof data !== 'object' || data === null) throw new Error('malformed webhook');
-
-    // Only non-sensitive fields are kept. In particular the card authorization
-    // (a reusable charge token) and customer details are never stored.
-    const summary: Record<string, unknown> = {
-      event: eventType,
-      id: data.id ?? null,
-      reference: data.reference ?? data.transaction_reference ?? null,
-      status: data.status ?? null,
-      amount: data.amount ?? null,
-      currency: data.currency ?? null,
-      channel: data.channel ?? null,
-      domain: data.domain ?? null,
-    };
-
-    if (eventType === 'charge.success') {
-      const reference = str(data.reference);
-      if (!reference) throw new Error('malformed webhook');
-      return { kind: 'charge_success', eventType, eventId: `${eventType}:${data.id ?? reference}`, reference, summary };
-    }
-
-    if (['refund.pending', 'refund.processing', 'refund.processed', 'refund.failed', 'refund.needs-attention'].includes(eventType)) {
-      const transactionReference = str(data.transaction_reference);
-      if (!transactionReference) throw new Error('malformed webhook');
-      const refundReference = str(data.refund_reference);
-      summary.refund_reference = refundReference;
-      return {
-        kind: 'refund',
-        eventType,
-        eventId: `${eventType}:${refundReference ?? transactionReference}`,
-        refund: {
-          transactionReference,
-          refundReference,
-          // The event name is authoritative; data.status adds "needs-attention".
-          status: data.status === 'needs-attention' ? 'needs-attention' : eventType.slice('refund.'.length),
-          amountMinor: int(typeof data.amount === 'string' ? Number(data.amount) : data.amount),
-          reason: str(data.merchant_note) ?? str(data.customer_note) ?? str(data.message),
-        },
-        summary,
-      };
-    }
-
-    return { kind: 'ignored', eventType, eventId: `${eventType}:${data.id ?? data.reference ?? 'unknown'}`, summary };
+    return parsePaystackEvent(rawBody);
   }
+}
+
+// ---------------------------------------------------------------------------
+// Paystack's formats. Also used by the simulated provider (mock.ts), which
+// speaks the same formats so that both adapters are interpreted identically.
+// ---------------------------------------------------------------------------
+
+/** Unknown at the provider (or not found yet): certainly not paid. */
+export function notFound(reference: string): VerifiedCharge {
+  return { reference, status: 'pending', amountMinor: null, currency: null, paidAt: null, transactionId: null, channel: null, failureReason: 'not_found' };
+}
+
+/** Normalises a transaction object as returned by Paystack's verify API. */
+export function chargeFromTransaction(reference: string, data: any): VerifiedCharge {
+  // The answer must be for the reference we asked about; anything else is not proof of payment.
+  const sameReference = data.reference === reference;
+  const provider = String(data.status ?? '');
+  const charge: VerifiedCharge = {
+    reference,
+    status: 'pending',
+    amountMinor: int(data.amount),
+    currency: str(data.currency),
+    paidAt: str(data.paid_at) ?? str(data.paidAt),
+    transactionId: data.id === undefined || data.id === null ? null : String(data.id),
+    channel: str(data.channel),
+    failureReason: null,
+  };
+  if (provider === 'success' && sameReference && charge.amountMinor !== null && charge.currency !== null) {
+    charge.status = 'success';
+  } else if (provider === 'failed' || provider === 'reversed') {
+    charge.status = 'failed';
+    charge.failureReason = str(data.gateway_response) ?? provider;
+  }
+  // abandoned | ongoing | pending | processing | queued: the guest has not paid (yet).
+  return charge;
+}
+
+/** HMAC-SHA512 of the raw body, keyed with `secret`, compared in constant time. */
+export async function signatureMatches(secret: string, rawBody: string, signatureHex: string | null): Promise<boolean> {
+  const given = hexToBytes(signatureHex ?? '');
+  if (!given || given.length === 0) return false;
+  const expected = hexToBytes(await hmacSha512Hex(secret, rawBody))!;
+  return constantTimeEqual(given, expected);
+}
+
+/** Parses a webhook body whose signature has already been verified. Throws on malformed input. */
+export function parsePaystackEvent(rawBody: string): WebhookEvent {
+  const body = JSON.parse(rawBody);
+  const eventType = str(body?.event);
+  const data = body?.data;
+  if (!eventType || typeof data !== 'object' || data === null) throw new Error('malformed webhook');
+
+  // Only non-sensitive fields are kept. In particular the card authorization
+  // (a reusable charge token) and customer details are never stored.
+  const summary: Record<string, unknown> = {
+    event: eventType,
+    id: data.id ?? null,
+    reference: data.reference ?? data.transaction_reference ?? null,
+    status: data.status ?? null,
+    amount: data.amount ?? null,
+    currency: data.currency ?? null,
+    channel: data.channel ?? null,
+    domain: data.domain ?? null,
+  };
+
+  if (eventType === 'charge.success') {
+    const reference = str(data.reference);
+    if (!reference) throw new Error('malformed webhook');
+    return { kind: 'charge_success', eventType, eventId: `${eventType}:${data.id ?? reference}`, reference, summary };
+  }
+
+  if (['refund.pending', 'refund.processing', 'refund.processed', 'refund.failed', 'refund.needs-attention'].includes(eventType)) {
+    const transactionReference = str(data.transaction_reference);
+    if (!transactionReference) throw new Error('malformed webhook');
+    const refundReference = str(data.refund_reference);
+    summary.refund_reference = refundReference;
+    return {
+      kind: 'refund',
+      eventType,
+      eventId: `${eventType}:${refundReference ?? transactionReference}`,
+      refund: {
+        transactionReference,
+        refundReference,
+        // The event name is authoritative; data.status adds "needs-attention".
+        status: data.status === 'needs-attention' ? 'needs-attention' : eventType.slice('refund.'.length),
+        amountMinor: int(typeof data.amount === 'string' ? Number(data.amount) : data.amount),
+        reason: str(data.merchant_note) ?? str(data.customer_note) ?? str(data.message),
+      },
+      summary,
+    };
+  }
+
+  return { kind: 'ignored', eventType, eventId: `${eventType}:${data.id ?? data.reference ?? 'unknown'}`, summary };
 }

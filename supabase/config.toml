@@ -427,3 +427,8 @@ verify_jwt = false
 # Called by Paystack, which authenticates with a signature over the request body.
 [functions.paystack-webhook]
 verify_jwt = false
+
+# Simulated provider's hosted checkout. Only active when PAYMENT_PROVIDER=mock.
+# Never deploy to production.
+[functions.demo-checkout]
+verify_jwt = false

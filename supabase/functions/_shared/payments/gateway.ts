@@ -4,7 +4,8 @@
 // Web-standard APIs only: the same code runs in the Supabase Edge runtime and
 // in the Node test suite.
 
-export type ProviderName = 'paystack' | 'stripe';
+/** `mock` is the simulated provider used until real credentials are connected. */
+export type ProviderName = 'paystack' | 'stripe' | 'mock';
 
 export interface InitializeInput {
   reference: string;

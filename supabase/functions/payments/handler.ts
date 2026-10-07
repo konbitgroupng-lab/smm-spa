@@ -26,11 +26,13 @@ const ERROR_STATUS: Record<string, number> = {
   address_required: 422,
   nothing_to_pay: 422,
   payments_disabled: 503,
+  demo_payments_disabled: 503,
 };
 
 /** Outcome fields a guest holding the reference may see. */
-function publicOutcome(outcome: any) {
+function publicOutcome(outcome: any, gateway: PaymentGateway) {
   return {
+    demo: gateway.name === 'mock',
     status: outcome.status as 'confirmed' | 'pending' | 'failed' | 'refund_required',
     reason: outcome.reason ?? undefined,
     appointment: outcome.appointment
@@ -109,6 +111,10 @@ async function initialize(body: Record<string, unknown>, deps: PaymentsDeps): Pr
       currency: payment.currency,
       kind: payment.kind,
       holdExpiresAt: payment.hold_expires_at,
+      // Decided by the server's configuration, so the site can never present a
+      // simulated payment as a real one, or the reverse.
+      provider: deps.gateway.name,
+      demo: deps.gateway.name === 'mock',
     },
   };
 }
@@ -122,7 +128,7 @@ async function verify(body: Record<string, unknown>, deps: PaymentsDeps): Promis
   if (current.error) throw new Error(current.error.message);
   if (!current.data) return { status: 404, body: { error: 'payment_not_found' } };
   if (current.data.status === 'confirmed' || current.data.status === 'refund_required') {
-    return { status: 200, body: publicOutcome(current.data) };
+    return { status: 200, body: publicOutcome(current.data, deps.gateway) };
   }
 
   let charge;
@@ -133,7 +139,7 @@ async function verify(body: Record<string, unknown>, deps: PaymentsDeps): Promis
     return { status: 502, body: { error: 'gateway_unavailable' } };
   }
   // "Not paid yet" changes nothing; the guest may still be on the checkout page.
-  if (charge.status === 'pending') return { status: 200, body: publicOutcome(current.data) };
+  if (charge.status === 'pending') return { status: 200, body: publicOutcome(current.data, deps.gateway) };
 
   const recorded = await deps.rpc('record_payment_result', {
     p_provider: deps.gateway.name,
@@ -147,7 +153,7 @@ async function verify(body: Record<string, unknown>, deps: PaymentsDeps): Promis
     p_failure_reason: charge.failureReason,
   });
   if (recorded.error) throw new Error(recorded.error.message);
-  return { status: 200, body: publicOutcome(recorded.data) };
+  return { status: 200, body: publicOutcome(recorded.data, deps.gateway) };
 }
 
 export async function handlePaymentsRequest(req: Request, deps: PaymentsDeps): Promise<Response> {

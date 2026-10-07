@@ -91,8 +91,8 @@ describe('payments endpoint: initialize', () => {
     const res = await pay({ action: 'initialize', holdToken: hold.hold_token, amountMinor: 1, amount: 1, currency: 'USD', callbackUrl: `${SITE}/booking/return` });
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(Object.keys(body).sort()).toEqual(['amountMinor', 'bookingTotalMinor', 'checkoutUrl', 'currency', 'holdExpiresAt', 'kind', 'reference']);
-    expect(body).toMatchObject({ amountMinor: PRICE, bookingTotalMinor: PRICE, currency: 'NGN', kind: 'full' });
+    expect(Object.keys(body).sort()).toEqual(['amountMinor', 'bookingTotalMinor', 'checkoutUrl', 'currency', 'demo', 'holdExpiresAt', 'kind', 'provider', 'reference']);
+    expect(body).toMatchObject({ amountMinor: PRICE, bookingTotalMinor: PRICE, currency: 'NGN', kind: 'full', provider: 'paystack', demo: false });
     expect(body.checkoutUrl).toMatch(/^https:\/\/checkout\.paystack\.com\//);
     expect(paystack.transactions.get(body.reference)).toMatchObject({ amount: PRICE, currency: 'NGN', callback_url: `${SITE}/booking/return` });
     expect(await payment(body.reference)).toMatchObject({ status: 'initialized', checkout_url: body.checkoutUrl, is_test: true });
@@ -159,7 +159,8 @@ describe('payments endpoint: verify', () => {
     const confirmed = await verify(reference);
     const [appointment] = await appointmentsFor(hold.id);
     expect(confirmed).toMatchObject({ status: 'confirmed', appointment: { reference: appointment.reference } });
-    expect(Object.keys(confirmed).sort()).toEqual(['appointment', 'status']);
+    expect(Object.keys(confirmed).sort()).toEqual(['appointment', 'demo', 'status']);
+    expect(confirmed.demo).toBe(false);
     expect(await payment(reference)).toMatchObject({ status: 'succeeded', appointment_id: appointment.id });
   });
 

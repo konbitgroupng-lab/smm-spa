@@ -7,8 +7,10 @@
 -- as demo until the client verifies names, prices and durations.
 -- To remove it all, see supabase/snippets/purge_demo_data.sql.
 
-insert into public.business_settings (business_name, timezone, currency, online_payment_enabled, payment_mode, deposit_percent)
-values ('SMM (Sweet Mobile Massage and Spa)', 'Africa/Lagos', 'NGN', false, 'full', 50);
+-- Online payment is on, with simulated (demo) payments allowed: development only.
+-- Production must have allow_demo_payments = false (the default).
+insert into public.business_settings (business_name, timezone, currency, online_payment_enabled, allow_demo_payments, payment_mode, deposit_percent)
+values ('SMM (Sweet Mobile Massage and Spa)', 'Africa/Lagos', 'NGN', true, true, 'full', 50);
 
 -- Placeholder opening hours: 09:00-21:00 every day.
 insert into public.business_hours (day_of_week, is_closed, opens_at, closes_at)

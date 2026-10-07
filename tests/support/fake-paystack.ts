@@ -15,7 +15,7 @@ interface Transaction {
   amount: number;
   currency: string;
   email: string;
-  status: 'abandoned' | 'success' | 'failed';
+  status: 'abandoned' | 'pending' | 'success' | 'failed';
   paid_at: string | null;
   channel: string | null;
   gateway_response: string;
@@ -30,6 +30,8 @@ export interface FakePaystack {
   /** The guest completes checkout. Overrides simulate tampering or provider-side differences. */
   pay(reference: string, overrides?: Partial<Pick<Transaction, 'amount' | 'currency' | 'channel'>>): Transaction;
   decline(reference: string, reason?: string): Transaction;
+  /** Payment started but not confirmed yet (e.g. a bank transfer). */
+  setPending(reference: string): Transaction;
   /** While true every API call answers 503. */
   setOutage(down: boolean): void;
   /** A webhook delivery signed the way Paystack signs it. */
@@ -112,6 +114,11 @@ export async function startFakePaystack(secretKey = FAKE_SECRET_KEY): Promise<Fa
     decline(reference, reason = 'Declined') {
       const transaction = get(reference);
       Object.assign(transaction, { status: 'failed', gateway_response: reason, channel: 'card' });
+      return transaction;
+    },
+    setPending(reference) {
+      const transaction = get(reference);
+      Object.assign(transaction, { status: 'pending', gateway_response: 'Transaction ongoing', channel: 'bank_transfer' });
       return transaction;
     },
     setOutage(down) {
