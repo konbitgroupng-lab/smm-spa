@@ -65,6 +65,7 @@ describe('database connection and schema', () => {
         'intake_questions', 'media_assets', 'payment_events', 'payments', 'profiles', 'service_package_items',
         'services', 'site_content', 'testimonials', 'therapist_breaks', 'therapist_schedules',
         'therapist_services', 'therapist_time_off', 'therapists',
+        'audit_log', // Phase 5a
       ].sort(),
     );
   });
@@ -102,7 +103,8 @@ describe('authentication foundation', () => {
     expect(await asRole(db, 'authenticated', ownerId, check)).toMatchObject({ is_admin: true, role: 'owner', therapist_id: null });
     expect(await asRole(db, 'authenticated', therapistAUser, check)).toMatchObject({ is_admin: false, role: 'therapist', therapist_id: therapistA });
     expect(await asRole(db, 'authenticated', inactiveUser, check)).toMatchObject({ is_admin: false, role: null });
-    expect(await asRole(db, 'anon', null, check)).toMatchObject({ is_admin: false, role: null, therapist_id: null });
+    // Phase 5a: guests cannot reach the role helpers at all.
+    await expect(asRole(db, 'anon', null, check)).rejects.toThrow(/permission denied/);
   });
 });
 
@@ -143,15 +145,19 @@ describe('RLS: guests', () => {
 });
 
 describe('RLS: therapists', () => {
-  it('see only their own appointments, customers and intake answers', async () => {
+  it('see only their own appointments and intake answers; customer records only through their agenda', async () => {
     const seen = await asRole(db, 'authenticated', therapistAUser, async () => ({
       appointments: await rows(db, `select id from appointments`),
       customers: await rows(db, `select id from customers`),
       answers: await rows(db, `select answer from appointment_intake_answers`),
       schedules: await rows(db, `select distinct therapist_id from therapist_schedules`),
+      agenda: await rows(db, `select appointment_id, contact_name from therapist_agenda(now() - interval '1 day', now() + interval '30 days')`),
     }));
     expect(seen.appointments.map((a) => a.id)).toEqual([apptA]);
-    expect(seen.customers.map((c) => c.id)).toEqual([adaId]);
+    // Phase 5a (decision B): the customers table is no longer readable by therapists;
+    // their agenda gives the booking contact for their own appointments only.
+    expect(seen.customers).toEqual([]);
+    expect(seen.agenda).toEqual([{ appointment_id: apptA, contact_name: '[DEMO] Ada Example' }]);
     expect(seen.answers).toEqual([{ answer: 'A' }]);
     expect(seen.schedules).toEqual([{ therapist_id: therapistA }]);
   });
@@ -168,12 +174,12 @@ describe('RLS: therapists', () => {
   });
 
   it('cannot change appointments, prices or their own role', async () => {
-    const changed = await asRole(db, 'authenticated', therapistAUser, async () => ({
-      appointments: (await db.query(`update appointments set status = 'cancelled'`)).affectedRows,
-      services: (await db.query(`update services set price_minor = 1`)).affectedRows,
-      profiles: (await db.query(`update profiles set role = 'owner'`)).affectedRows,
-    }));
-    expect(changed).toEqual({ appointments: 0, services: 0, profiles: 0 });
+    // Phase 5a (decision B): direct writes to appointments and profiles are now
+    // refused outright for every signed-in user, not just filtered to 0 rows.
+    await expect(asRole(db, 'authenticated', therapistAUser, () => db.query(`update appointments set status = 'cancelled'`))).rejects.toThrow(/permission denied/);
+    await expect(asRole(db, 'authenticated', therapistAUser, () => db.query(`update profiles set role = 'owner'`))).rejects.toThrow(/permission denied/);
+    const services = await asRole(db, 'authenticated', therapistAUser, async () => (await db.query(`update services set price_minor = 1`)).affectedRows);
+    expect(services).toBe(0);
     await expect(
       asRole(db, 'authenticated', therapistAUser, () =>
         db.query(`insert into customers (full_name, email) values ('X', 'x@example.com')`),
@@ -204,24 +210,35 @@ describe('RLS: owner/admin', () => {
     expect(seen.payments).toHaveLength(1);
   });
 
-  it('can create a customer and an appointment', async () => {
-    const appointment = await asRole(db, 'authenticated', ownerId, async () => {
-      const customer = await one(
-        db,
-        `insert into customers (full_name, email, phone, is_demo) values ('[DEMO] Chidi Example', 'demo.chidi@example.com', '+2340000000003', true) returning id`,
-      );
-      return one(
-        db,
-        `insert into appointments (customer_id, service_id, therapist_id, starts_at, ends_at, blocked_until, status, price_minor, dispatch_fee_minor, is_demo)
-         select $1, s.id, $2, now() + interval '12 days', now() + interval '12 days 1 hour', now() + interval '12 days 75 minutes',
-                'confirmed', s.price_minor, 300000, true
-         from services s where s.slug = 'hot-stone'
-         returning reference, total_minor`,
-        [customer.id, therapistA],
-      );
-    });
-    expect(appointment.reference).toMatch(/^SMM-[0-9A-F]{8}$/);
-    expect(Number(appointment.total_minor)).toBe(5300000);
+  it('can create a customer, but not write appointments directly', async () => {
+    const customer = await asRole(db, 'authenticated', ownerId, () =>
+      one(db, `insert into customers (full_name, email, phone, is_demo) values ('[DEMO] Chidi Example', 'demo.chidi@example.com', '+2340000000003', true) returning id`),
+    );
+    expect(customer.id).toBeTruthy();
+    // Phase 5a (decision B): appointments change only through checked, audited functions.
+    await expect(
+      asRole(db, 'authenticated', ownerId, () =>
+        db.query(
+          `insert into appointments (customer_id, service_id, therapist_id, starts_at, ends_at, blocked_until, status, price_minor, dispatch_fee_minor, is_demo)
+           select $1, s.id, $2, now() + interval '12 days', now() + interval '12 days 1 hour', now() + interval '12 days 75 minutes',
+                  'confirmed', s.price_minor, 300000, true
+           from services s where s.slug = 'hot-stone'`,
+          [customer.id, therapistA],
+        ),
+      ),
+    ).rejects.toThrow(/permission denied/);
+    // The reference format and stored total are unchanged for server-created appointments.
+    const created = await one(
+      db,
+      `insert into appointments (customer_id, service_id, therapist_id, starts_at, ends_at, blocked_until, status, price_minor, dispatch_fee_minor, is_demo)
+       select $1, s.id, $2, now() + interval '12 days', now() + interval '12 days 1 hour', now() + interval '12 days 75 minutes',
+              'confirmed', s.price_minor, 300000, true
+       from services s where s.slug = 'hot-stone'
+       returning reference, total_minor`,
+      [customer.id, therapistA],
+    );
+    expect(created.reference).toMatch(/^SMM-[0-9A-F]{8}$/);
+    expect(Number(created.total_minor)).toBe(5300000);
   });
 
   it('rejects a second customer with the same email in a different case', async () => {

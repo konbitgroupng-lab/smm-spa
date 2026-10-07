@@ -12,10 +12,45 @@ import { pgliteRpc } from './rpc';
 // A stand-in for a Supabase project, for tests that run the frontend's own
 // service modules over HTTP:
 //   POST /functions/v1/<name>   the real Edge Function handlers (demo gateway)
-//   POST /rest/v1/rpc/<fn>      database functions, run as the guest role (anon)
-// Only what the booking and payment services use is implemented.
+//   POST /rest/v1/rpc/<fn>      database functions, run as the guest role (anon),
+//                               or as the signed-in user when a token from /auth/v1 is sent
+//   /auth/v1/...                a minimal stand-in for Supabase Auth (password sign-in,
+//                               sign-out, password change), when `staffPassword` is given
+// Only what the booking, payment and staff services use is implemented.
+// Test-only: its tokens are unsigned and trusted as-is.
 
-export async function startLocalBackend(db: PGlite, site: string): Promise<{ url: string; close(): Promise<void> }> {
+const encode = (value: object) => Buffer.from(JSON.stringify(value)).toString('base64url');
+
+/** The claims of a token issued by this backend, or null for the anon key. */
+function tokenClaims(authorization: string | undefined): { sub: string; role: string; aal: string } | null {
+  const token = authorization?.replace(/^Bearer /, '') ?? '';
+  const [, payload] = token.split('.');
+  if (!payload) return null;
+  try {
+    const claims = JSON.parse(Buffer.from(payload, 'base64url').toString());
+    return claims.role === 'authenticated' && typeof claims.sub === 'string' ? claims : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Runs `fn` as the request's user: signed in (with its token's claims) or anon. */
+async function asRequester<T>(db: PGlite, authorization: string | undefined, fn: () => Promise<T>): Promise<T> {
+  const claims = tokenClaims(authorization);
+  if (!claims) return asRole(db, 'anon', null, fn);
+  await db.query(`select set_config('request.jwt.claims', $1, false)`, [JSON.stringify(claims)]);
+  try {
+    return await asRole(db, 'authenticated', claims.sub, fn);
+  } finally {
+    await db.query(`select set_config('request.jwt.claims', '', false)`);
+  }
+}
+
+export async function startLocalBackend(
+  db: PGlite,
+  site: string,
+  { staffPassword }: { staffPassword?: string } = {},
+): Promise<{ url: string; close(): Promise<void> }> {
   const rpc = pgliteRpc(db);
   const gateway = new MockPaymentGateway({ rpc, webhookSecret: 'local-backend-demo-secret' });
   let visitor = 0;
@@ -39,6 +74,38 @@ export async function startLocalBackend(db: PGlite, site: string): Promise<{ url
     const path = (req.url ?? '').split('?')[0];
     const cors = { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*' };
     if (req.method === 'OPTIONS') return res.writeHead(204, cors).end();
+    const json = (status: number, value: unknown) => {
+      res.writeHead(status, { ...cors, 'content-type': 'application/json', 'x-supabase-api-version': '2024-01-01' });
+      return res.end(JSON.stringify(value));
+    };
+
+    if (path.startsWith('/auth/v1/') && staffPassword) {
+      const user = async (id: string) => (await db.query<{ id: string; email: string }>(`select id, email from auth.users where id = $1`, [id])).rows[0];
+      const reply = (u: { id: string; email: string }) => ({
+        id: u.id, aud: 'authenticated', role: 'authenticated', email: u.email,
+        app_metadata: {}, user_metadata: {}, created_at: new Date().toISOString(),
+      });
+      if (path === '/auth/v1/token' && req.method === 'POST') {
+        const { email, password } = JSON.parse(body || '{}');
+        const found = (await db.query<{ id: string; email: string }>(`select id, email from auth.users where email = $1`, [email])).rows[0];
+        if (!found || password !== staffPassword) {
+          return json(400, { code: 'invalid_credentials', msg: 'Invalid login credentials' });
+        }
+        const now = Math.floor(Date.now() / 1000);
+        const access_token = `${encode({ alg: 'none', typ: 'JWT' })}.${encode({ sub: found.id, role: 'authenticated', aal: 'aal1', exp: now + 3600, email: found.email })}.unsigned`;
+        return json(200, { access_token, token_type: 'bearer', expires_in: 3600, expires_at: now + 3600, refresh_token: `refresh-${found.id}`, user: reply(found) });
+      }
+      const claims = tokenClaims(req.headers.authorization);
+      if (path === '/auth/v1/logout') return res.writeHead(204, cors).end();
+      if (path === '/auth/v1/user' && claims) {
+        const u = await user(claims.sub);
+        if (req.method === 'PUT' && JSON.parse(body || '{}').password === staffPassword) {
+          return json(422, { code: 'same_password', msg: 'New password should be different from the old password.' });
+        }
+        return json(200, reply(u));
+      }
+      return json(401, { code: 'no_authorization', msg: 'This endpoint requires a valid Bearer token' });
+    }
 
     if (path.startsWith('/functions/v1/')) {
       const handler = functions[path.slice('/functions/v1/'.length)];
@@ -102,7 +169,7 @@ export async function startLocalBackend(db: PGlite, site: string): Promise<{ url
       const args = JSON.parse(body || '{}');
       const names = Object.keys(args).filter((n) => /^[a-z_]+$/.test(n));
       try {
-        const result = await asRole(db, 'anon', null, () =>
+        const result = await asRequester(db, req.headers.authorization, () =>
           db.query(`select * from public.${fn}(${names.map((n, i) => `${n} => $${i + 1}`).join(', ')})`, names.map((n) => args[n])),
         );
         const rows = result.rows as any[];
@@ -110,7 +177,8 @@ export async function startLocalBackend(db: PGlite, site: string): Promise<{ url
         res.writeHead(200, { ...cors, 'content-type': 'application/json' });
         return res.end(JSON.stringify(fn === 'get_available_slots' ? rows : scalar ? rows[0]?.[fn] : rows[0]));
       } catch (err: any) {
-        res.writeHead(err.code === '42501' ? 401 : 400, { ...cors, 'content-type': 'application/json' });
+        const status = err.code === '42501' ? (tokenClaims(req.headers.authorization) ? 403 : 401) : 400;
+        res.writeHead(status, { ...cors, 'content-type': 'application/json' });
         return res.end(JSON.stringify({ code: err.code, message: err.message, details: err.detail ?? null, hint: null }));
       }
     }

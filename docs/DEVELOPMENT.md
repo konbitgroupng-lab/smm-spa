@@ -1,6 +1,6 @@
 # Development guide
 
-SMM is a React 19 + Vite + Tailwind site backed by Supabase (Postgres, Auth, Row Level Security, Storage, Edge Functions). This guide covers Phases 1-4: what exists, how to run it, and the rules the rest of the build relies on.
+SMM is a React 19 + Vite + Tailwind site backed by Supabase (Postgres, Auth, Row Level Security, Storage, Edge Functions). This guide covers Phases 1-4 and the Phase 5a staff security foundation: what exists, how to run it, and the rules the rest of the build relies on.
 
 ## Current state
 
@@ -12,7 +12,9 @@ SMM is a React 19 + Vite + Tailwind site backed by Supabase (Postgres, Auth, Row
 | Availability engine, validated holds, public `booking` endpoint | Done (Phase 2). |
 | Payments (`PaymentGateway` interface) | Done (Phase 3 prototype). Runs on the **demo gateway**: no real money moves. The Paystack adapter is built and tested but not connected; see "Future Paystack integration". |
 | Public booking funnel and confirmation page | Done (Phase 4); see "Booking funnel". |
-| Admin and staff dashboard; CMS, analytics, notifications | Phases 5-6; see "Deferred to Phases 5 and 6". |
+| Staff security foundation: role hardening, audit log, staff functions, two-factor readiness | Done (Phase 5a); see "Authentication and authorization". |
+| Staff app (`/staff/`) | Shell only (Phase 5a): sign-in, password links, role-based navigation, own account. Operational screens arrive in 5b-5d. |
+| CMS, analytics, notifications | Phase 6; see "Deferred to Phases 5 and 6". |
 
 ## Quick start
 
@@ -250,16 +252,58 @@ No domain code changes: the switch is configuration plus one end-to-end test. Us
 
 - Supabase Auth, email + password. Public sign-up is disabled: staff are invited, customers book as guests.
 - A trigger creates a `profiles` row for every Auth user as an **inactive therapist**. Sign-up metadata can never set a role.
-- RLS is enabled on every table. Access is decided by `private.is_admin()` and `private.therapist_id()`, which read the caller's active profile.
+- RLS is enabled on every table. Access is decided by `private.staff_role()`, `private.is_admin()`, `private.is_owner()` and `private.therapist_id()`, which read the caller's **active** profile. Deactivating an account takes effect on its next request.
+- The database decides everything. The staff app hides what a role cannot use, but only as a convenience: every rule below is enforced by grants, RLS or the staff functions, and is tested directly against the database.
 
-| Who | Can do |
+| Who | Can do (Phase 5a) |
 | --- | --- |
-| Guest (`anon`) | Read active services, therapists, zones, opening hours, published content, enabled intake questions. Nothing else. |
-| Therapist | The above, plus read their own schedule, their own appointments, and the customers and intake answers attached to those appointments. No writes. |
-| Owner / admin | Manage catalogue, schedules, customers, appointments, content and media. Read holds and payments. |
-| `service_role` (Edge Functions) | Everything. The only writer of `booking_holds`, `payments` and `payment_events`, so payment figures cannot be edited from the dashboard. |
+| Guest (`anon`) | Read 14 public tables (active services, therapists, zones, opening hours, settings, published content). Call one function, `get_available_slots`; holds and payments go through the Edge Functions. No access to the `private` schema, staff functions, customers, appointments, payments, holds or the audit log. |
+| Signed in, no staff access (new or deactivated account) | Read their own profile; `staff_whoami()` reports why there is no access. Nothing else. |
+| Therapist | Their own schedule, breaks and time off; their own appointments through `therapist_agenda()` (booking contact name and phone, address, guest notes, paid or to collect; no email, staff notes or amounts); intake answers for those appointments (unused until Phase 6); blackout dates; their own name and phone. No direct writes. |
+| Admin | Read appointments, customers, holds, payments, staff profiles and the audit log. Edit customers (never delete), the catalogue, schedules, content and media; booking rules through `staff_update_booking_rules()`. |
+| Owner | Everything an admin can, plus staff roles and activation, linking therapist records to accounts, and payment settings. |
+| `service_role` (Edge Functions) | The only writer of `booking_holds`, `payments` and `payment_events`, so payment figures cannot be edited from the staff app. |
 
-Owner and admin have identical rights in Phase 1.
+Nobody, from the app, can: write appointments, profiles or business settings directly (only through the functions below or the server); delete customers, services, therapists or dispatch zones (they are deactivated, decision H); change which account a therapist record belongs to except through `owner_link_therapist()`; change `allow_demo_payments` (no function exposes it; it is changed only in the SQL editor); edit or delete the audit log.
+
+### Staff functions
+
+All are `security definer` with a fixed `search_path`, executable by signed-in users only, and check the caller's role themselves. Every edit takes the version (`updated_at`) the screen was showing and fails with `stale_record` if the row has changed since; staff-account and settings changes need a reason (`reason_required`).
+
+| Function | Who | Does |
+| --- | --- | --- |
+| `staff_whoami()` | any signed-in user | Profile, effective role, therapist record, session and required authentication level. Grants nothing. |
+| `staff_update_own_profile(name, phone, version)` | any active staff | Own name and phone; never role or status. |
+| `therapist_agenda(from, to)` | therapist | Own appointments in a range of up to 62 days. |
+| `staff_update_booking_rules(version, reason, …)` | owner, admin | Business name, hold length, lead time, booking window, slot grid, buffer. Validated by the table's checks; applies to guests immediately. |
+| `owner_update_payment_settings(version, reason, …)` | owner | Online payment on/off, full or deposit, deposit percent. |
+| `owner_set_staff_role(profile, role, reason, version)` | owner | Change a role. |
+| `owner_set_staff_active(profile, active, reason, version)` | owner | Activate or deactivate an account. |
+| `owner_link_therapist(therapist, profile, reason, version)` | owner | Link a therapist record to an account (or unlink). |
+
+There is always at least one active owner: a trigger refuses to demote, deactivate or delete the last one (`last_owner`), whoever asks, and is serialised so two owners demoting each other at the same moment cannot both succeed.
+
+Error codes the staff app explains: `not_authorized`, `stale_record`, `reason_required`, `invalid_profile`, `last_owner`, `not_found`, `invalid_range`.
+
+**Versions are passed back as received.** `updated_at` has microsecond precision; it must travel as the string the server sent (JSON keeps it). Converting it to a JavaScript `Date` drops the microseconds and every edit then fails as stale.
+
+### Audit log
+
+`audit_log` is append-only: no role, not even `service_role` or the table owner, can update, delete or truncate it (a trigger refuses; a future redaction routine is the only planned exception and is not built). Owner and admin can read it.
+
+- **What is recorded.** Every insert, update and delete on the 14 staff-managed tables (profiles, therapists, therapist services, schedules, breaks, time off, blackout dates, business hours, business settings, services, package items, dispatch zones, customers, appointments), whoever makes it: staff, the booking server (`actor_kind = 'system'`) or the SQL editor. Staff functions add a named action (`staff.role_changed`, `settings.booking_rules_changed`, …) and the reason given. Holds and payments keep their own history (`payment_events`).
+- **What is not.** New rows are recorded without their values. Updates record only changed columns (old and new), ignoring timestamps. Personal fields (customer name, email, phone and staff notes; appointment contact name, phone, address and notes; staff name and phone) are recorded as `{"changed": true}`, never with values; deleted rows keep only non-personal values. The list lives in `private.audit_personal_columns`. No table in the list holds passwords, tokens or payment credentials.
+- **Room to grow.** `retention_class` and `redacted_at` are there for a future retention and redaction policy; nothing uses them yet.
+
+### Two-factor readiness
+
+Not enforced (decision K), but designed in. `private.auth_policy` holds the authentication level each role needs (`aal1` = password, `aal2` = password plus a second factor); all three start at `aal1`. Raising the owner's to `aal2`:
+
+```sql
+update private.auth_policy set required_aal = 'aal2' where role = 'owner';
+```
+
+makes `private.staff_role()` return nothing for an owner session without a second factor, so every policy and function denies it at once. `staff_whoami()` reports `session_aal` and `required_aal`, and the staff app already shows a separate "Extra verification needed" screen for that case. Turning it on later needs only the Supabase MFA enrolment and challenge screens there; the database and the rest of the app stay as they are.
 
 ### Storage
 
@@ -267,15 +311,27 @@ One public bucket, `site-media` (5 MB limit; JPEG, PNG, WebP, AVIF), with folder
 
 ## Frontend data layer
 
-`src/lib/supabase.ts` creates the browser client from the two `VITE_` variables. `src/services/*` is the only code that talks to Supabase:
+`src/lib/supabase.ts` creates the website's client from the two `VITE_` variables. It keeps **no login session**: nothing is stored, nothing refreshed, and login links in the address bar are ignored (decision M). `src/services/*` is the only website code that talks to Supabase:
 
 - `catalogService`, `contentService`: public reads. They return the same shapes as `src/data.ts`, and fall back to that static content when Supabase is not configured.
-- `authService`: staff sign-in, sign-out, password reset, current profile.
-- `appointmentsService`: staff reads of appointments and customers; admin customer creation.
 - `bookingService`: guest availability (`getAvailableSlots`) and hold actions through the `booking` function. Failures throw `BookingError` with the codes above.
 - `paymentService`: `startPayment` and `verifyPayment` through the `payments` function. Only a `confirmed` outcome from `verifyPayment` means a booking exists. The `*DemoCheckout` functions drive the demo checkout page.
 
-Nothing is stored in `localStorage`. The old booking form's `everest_bookings` key is deleted on every page load (`src/booking/legacyStorage.ts`). `sessionStorage` (this tab only) holds two conveniences: the reserved-time token for retrying a failed payment (`smm_payment_<reference>`, removed once the outcome is final) and whether the floating shortcut was dismissed.
+The website stores nothing in `localStorage`. The old booking form's `everest_bookings` key is deleted on every page load (`src/booking/legacyStorage.ts`). `sessionStorage` (this tab only) holds two conveniences: the reserved-time token for retrying a failed payment (`smm_payment_<reference>`, removed once the outcome is final) and whether the floating shortcut was dismissed.
+
+## Staff app
+
+`/staff/` (`staff/index.html`, code in `src/staff/`) is a separate Vite entry and bundle: the website loads none of its code. The page is marked `noindex`.
+
+| Piece | File | Role |
+| --- | --- | --- |
+| Client | `lib/client.ts` | Its own Supabase client: session stored under `smm-staff-auth`, refreshed automatically, invite and reset links read from the address bar (implicit flow, because invite links are generated on the server). Created on first use, after `main.tsx` has noted the link type. |
+| Server access | `lib/backend.ts` | The `StaffBackend` interface and its Supabase implementation; `accessFor()` turns `staff_whoami()` into what to show; `messageFor()` turns error codes into plain messages. |
+| Links | `lib/authLink.ts` | Recognises invite, recovery and expired links in the fragment. |
+| Screens | `StaffApp.tsx`, `StaffShell.tsx`, `screens/` | Sign in, forgot password, set password (invite and reset), account not active, extra verification needed, the signed-in shell, My account. |
+| Sections | `sections.ts` | Which sections each role sees; `#/<section>` routing. Sections other than My account are placeholders until 5b-5d. |
+
+Sign-in errors never say whether an account exists, and the reset form always gives the same reply. Passwords must be at least 10 characters (match the project's Auth setting). Reset and invite emails must redirect to `https://<site>/staff/`, which has to be in the project's Auth redirect URLs. Invites will be sent by an owner-only Edge Function (decision J, later checkpoint); until then, invite from the Supabase dashboard.
 
 ## Booking funnel
 
@@ -314,8 +370,8 @@ Trust boundary, unchanged from Phases 2 and 3: the funnel sends only choices (tr
 Not part of the funnel, by decision:
 
 - Customer accounts, and guest self-service cancel or reschedule. The confirmation asks guests to message or call.
-- Intake questions (Phase 5, with the admin switches to enable them).
-- Admin and staff dashboard, schedule and service management, staff sign-in screens (Phase 5).
+- Intake questions (moved to Phase 6, decision N; Phase 5 collects no intake or health data).
+- Staff operational screens: bookings, schedules, catalogue, payments, staff accounts, settings, activity log (Phase 5b-5d).
 - CMS editing; FAQs, gallery and testimonials from the database; analytics (Phase 6).
 - Email, SMS and WhatsApp confirmations and reminders.
 - Refund initiation.
@@ -350,8 +406,14 @@ Not part of the funnel, by decision:
 | `tests/booking/components/*.test.tsx` | Every funnel step, keyboard-only booking, 409 and 410 handling, the countdown, the demo notice, the unavailable state, every confirmation outcome (jsdom and Testing Library) |
 | `tests/site/site-without-backend.test.tsx` | The whole website with no backend: static fallback, legacy form and My Bookings gone, `localStorage` clean-up, "Book" and floating buttons, WhatsApp hand-off, routing |
 | `tests/site/site-with-backend.test.tsx` | The whole website against the real handlers and database: every booking scenario through to the confirmation page |
+| `tests/db/staff-authorization.test.ts` | The Phase 5a role matrix: every staff function against guest, new account, inactive admin, therapist, admin and owner; refused direct writes; last owner; versions and reasons; two-factor policy; therapist agenda |
+| `tests/db/staff-audit.test.ts` | Audit coverage, actions and reasons, no personal values in the log, append-only, who can read it; guests' exact privileges (tables, functions, `private` schema) |
+| `tests/db/staff-concurrency.test.ts` | Staff races on real PostgreSQL: owners demoting or deactivating each other, two edits from the same version |
+| `tests/staff/staff-backend.test.ts` | The staff app's real Supabase client and adapter over HTTP against the database functions |
+| `tests/staff/StaffApp.test.tsx` | Staff screens: sign-in, role navigation, no-access and verification screens, invite/reset/expired links, My account |
+| `tests/staff/client-separation.test.ts` | The website's client keeps no session and ignores login links; separate storage keys; no staff imports or secrets in the website |
 
-The local test backend (`tests/support/local-backend.ts`) serves the real Edge Function handlers and the database's REST reads and RPC calls over HTTP, so the site's own code can be tested end to end without Docker or a Supabase account.
+The local test backend (`tests/support/local-backend.ts`) serves the real Edge Function handlers and the database's REST reads and RPC calls over HTTP, so the site's own code can be tested end to end without Docker or a Supabase account. Given a `staffPassword`, it also stands in for Supabase Auth (password sign-in with unsigned test tokens) and runs RPC calls as the signed-in user.
 
 Layout at 360, 768 and 1280 px was checked in headless Microsoft Edge against the integrated site (no horizontal scroll, no covered controls, sticky summary behaviour, focus placement). That check is not part of `npm test`.
 
@@ -370,7 +432,8 @@ Decide or fix these in the booking-funnel and payment phases:
 - **Deposit balances.** A deposit confirms the booking; collecting the remainder is not handled online.
 - **Rule changes and unpaid holds.** A rule change is always caught when the hold is paid for. Creating a hold (`request_booking_hold`) does not take the schedule-rules lock, so a hold can be created in the same instant a rule changes; it then fails at payment and the payment is flagged for refund.
 - **Price changes after payment starts.** The price is fixed when payment starts; a later catalogue price change does not affect that booking.
-- **Staff view of contact details.** Appointments now keep the name and phone typed for that booking (`contact_name`, `contact_phone`); `appointmentsService` does not show them yet.
+- **Audit labels in direct SQL.** The named action and reason on an audit entry come from transaction settings that staff functions set. Someone with direct SQL access (the SQL editor) could set them by hand; the actor recorded is still accurate. Through the API, signed-in users cannot set them.
+- **Staff session checks.** The staff app re-checks access on sign-in and token refresh (about hourly). The database refuses a deactivated account at once; the app may show its screens until the next check.
 - **A guest's own hold hides its slot (server side).** The availability listing shows a held time as taken, including to the guest holding it. The funnel adds it back as "Reserved for you"; other clients of the API would need to do the same.
 - **Rate limiting is per IP address.** Visitors sharing one network share a limit. The limits are constants in `supabase/functions/booking/handler.ts`.
 - **`embedded-postgres` is a development/test-only dependency.** It downloads PostgreSQL binaries and is never part of the deployed site.
@@ -381,7 +444,7 @@ Decide or fix these in the booking-funnel and payment phases:
 ## Going to a hosted Supabase project
 
 1. Create the project, then `npx supabase link --project-ref <ref>` and `npx supabase db push`. Do **not** run `seed.sql` there.
-2. In Authentication settings: disable sign-ups, set the Site URL and redirect URLs, minimum password length 10. (`supabase/config.toml` only configures the local stack.)
+2. In Authentication settings: disable sign-ups, set the Site URL and redirect URLs (including `https://<site>/staff/`), minimum password length 10. Invite emails need custom SMTP before staff invites are used. (`supabase/config.toml` only configures the local stack.)
 3. Invite the owner from Authentication > Users, then promote them once in the SQL editor:
 
    ```sql

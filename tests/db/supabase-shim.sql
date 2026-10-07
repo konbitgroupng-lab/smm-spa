@@ -17,10 +17,25 @@ create table auth.users (
   created_at timestamptz not null default now()
 );
 
--- Same contract as Supabase: the signed-in user's id comes from the request JWT.
+-- Same contract as Supabase: the signed-in user and session come from the request JWT.
+create function auth.jwt() returns jsonb
+language sql stable
+as $$
+  select coalesce(
+    nullif(current_setting('request.jwt.claims', true), '')::jsonb,
+    case when nullif(current_setting('request.jwt.claim.sub', true), '') is not null
+      then jsonb_build_object('sub', current_setting('request.jwt.claim.sub', true)) end
+  )
+$$;
+
 create function auth.uid() returns uuid
 language sql stable
-as $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
+as $$
+  select coalesce(
+    nullif(current_setting('request.jwt.claim.sub', true), ''),
+    nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub'
+  )::uuid
+$$;
 
 create table storage.buckets (
   id text primary key,
@@ -41,6 +56,6 @@ create table storage.objects (
 alter table storage.objects enable row level security;
 
 grant usage on schema public, extensions, auth, storage to anon, authenticated, service_role;
-grant execute on function auth.uid() to anon, authenticated, service_role;
+grant execute on function auth.uid(), auth.jwt() to anon, authenticated, service_role;
 grant select, insert, update, delete on storage.objects to anon, authenticated, service_role;
 grant select on storage.buckets to anon, authenticated, service_role;
