@@ -48,7 +48,10 @@ export interface StaffBackend {
 
 /** Errors the staff app knows how to explain; anything else is 'unknown'. */
 export class StaffError extends Error {
-  /** `detail` names the rule behind schedule_rule / slot_unavailable, when the server gives one. */
+  /**
+   * `detail` names the rule behind schedule_rule / slot_unavailable, when the
+   * server gives one; for confirmation_required it is the affected bookings (JSON).
+   */
   constructor(public code: string, public detail?: string) {
     super(code);
   }
@@ -107,6 +110,17 @@ const MESSAGES: Record<string, string> = {
   invalid_source: 'Online bookings are settled by their online payment and cannot be changed here.',
   invalid_range: 'Choose a shorter period.',
   not_configured: 'Booking settings are missing.',
+  // Schedule and catalogue (Phase 5c)
+  confirmation_required: 'This change affects existing bookings. Review them below.',
+  invalid_schedule: 'Check the times: each period must start before it ends, and periods on the same day must not overlap.',
+  invalid_period: 'Check the dates: the period must end after it starts, and in the future.',
+  invalid_service: 'Check the treatment details (name, web address, length, buffer and prices).',
+  invalid_package: 'A package must contain at least one treatment, and no packages.',
+  invalid_therapist: 'Check the therapist details.',
+  invalid_services: 'Choose treatments from the list.',
+  invalid_zone: 'Check the area details (name, short name and fee).',
+  slug_in_use: 'Another treatment already uses this web address.',
+  key_in_use: 'Another area already uses this short name.',
 };
 
 /** Why a time is outside the booking rules (schedule_rule / slot_unavailable details). */

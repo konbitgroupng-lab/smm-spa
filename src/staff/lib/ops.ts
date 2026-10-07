@@ -134,6 +134,7 @@ export interface Dashboard {
   awaitingOutcome: number;
   refundsFlagged: number;
   next7Days: number;
+  scheduleConflicts: number;
 }
 
 export interface BookingOptions {
@@ -213,6 +214,170 @@ export interface CustomerInput {
   staffNotes: string | null;
 }
 
+// --- Schedule and catalogue (Phase 5c) -------------------------------------
+
+export interface WeekPeriod {
+  dayOfWeek: number; // 0 = Sunday
+  startTime: string; // HH:MM
+  endTime: string;
+}
+
+export interface ScheduleOverview {
+  hours: { dayOfWeek: number; isClosed: boolean; opensAt: string | null; closesAt: string | null }[];
+  hoursVersion: string;
+  therapists: { id: string; name: string; isActive: boolean; weekVersion: string; shifts: WeekPeriod[]; breaks: WeekPeriod[] }[];
+  timeOff: { id: string; therapistId: string; therapistName: string; startsAt: string; endsAt: string; note: string | null }[];
+  blackouts: { id: string; startsAt: string; endsAt: string; note: string | null }[];
+  rules: {
+    businessName: string; timezone: string; holdMinutes: number; minLeadMinutes: number; maxAdvanceDays: number;
+    slotIntervalMinutes: number; defaultBufferMinutes: number; updatedAt: string;
+  };
+  conflictCount: number;
+}
+
+export interface CatalogueService {
+  id: string;
+  slug: string;
+  name: string;
+  category: string;
+  description: string;
+  benefits: string[];
+  durationMinutes: number;
+  bufferMinutes: number;
+  priceMinor: number;
+  compareAtPriceMinor: number | null;
+  currency: string;
+  isPackage: boolean;
+  isPopular: boolean;
+  isActive: boolean;
+  sortOrder: number;
+  updatedAt: string;
+  futureAppointments: number;
+  liveReservations: number;
+  items: { serviceId: string; name: string }[];
+  itemsVersion: string;
+}
+
+export interface CatalogueTherapist {
+  id: string;
+  displayName: string;
+  title: string;
+  specialty: string;
+  bio: string;
+  isActive: boolean;
+  sortOrder: number;
+  updatedAt: string;
+  hasAccount: boolean;
+  serviceIds: string[];
+  servicesVersion: string;
+  futureAppointments: number;
+}
+
+export interface CatalogueZone {
+  id: string;
+  key: string;
+  name: string;
+  feeMinor: number;
+  isActive: boolean;
+  sortOrder: number;
+  updatedAt: string;
+  futureAppointments: number;
+}
+
+export interface Catalogue {
+  services: CatalogueService[];
+  therapists: CatalogueTherapist[];
+  zones: CatalogueZone[];
+}
+
+export interface ConflictRow {
+  id: string;
+  reference: string;
+  startsAt: string;
+  endsAt: string;
+  status: AppointmentStatus;
+  serviceName: string;
+  therapistId: string;
+  therapistName: string;
+  contactName: string | null;
+  locationType: LocationType;
+  zoneName: string | null;
+  reasons: string[];
+}
+
+/** Bookings a change would put in conflict (from confirmation_required, or after a confirmed change). */
+export interface ConflictSummary {
+  appointments: { id: string; reference: string; startsAt: string; serviceName: string; therapistName: string; contactName: string | null; reasons: string[] }[];
+  reservations: number;
+}
+
+/** How a schedule or catalogue change is sent: confirm = keep the affected bookings as they are. */
+export interface ChangeOptions {
+  reason: string | null;
+  confirm: boolean;
+}
+
+export interface ServiceInput {
+  slug: string;
+  name: string;
+  category: string;
+  description: string;
+  benefits: string[];
+  durationMinutes: number;
+  bufferMinutes: number;
+  priceMinor: number;
+  compareAtPriceMinor: number | null;
+  isPopular: boolean;
+  isActive: boolean;
+  sortOrder: number;
+  isPackage: boolean;
+}
+
+export interface TherapistInput {
+  displayName: string;
+  title: string;
+  specialty: string;
+  bio: string;
+  isActive: boolean;
+  sortOrder: number;
+}
+
+export interface ZoneInput {
+  key: string;
+  name: string;
+  feeMinor: number;
+  isActive: boolean;
+  sortOrder: number;
+}
+
+export interface BookingRulesInput {
+  holdMinutes: number;
+  minLeadMinutes: number;
+  maxAdvanceDays: number;
+  slotIntervalMinutes: number;
+  defaultBufferMinutes: number;
+}
+
+/** The bookings listed in a confirmation_required error. */
+export function conflictsOf(err: unknown): ConflictSummary | null {
+  if (!(err instanceof Error) || (err as any).code !== 'confirmation_required' || !(err as any).detail) return null;
+  try {
+    return mapSummary(JSON.parse((err as any).detail));
+  } catch {
+    return null;
+  }
+}
+
+function mapSummary(s: any): ConflictSummary {
+  return {
+    appointments: (s?.appointments ?? []).map((a: any) => ({
+      id: a.id, reference: a.reference, startsAt: a.starts_at, serviceName: a.service_name, therapistName: a.therapist_name,
+      contactName: a.contact_name, reasons: a.reasons,
+    })),
+    reservations: Number(s?.reservations ?? 0),
+  };
+}
+
 export interface StaffOps {
   dashboard(): Promise<Dashboard>;
   appointments(from: string, to: string, therapistId?: string | null): Promise<AppointmentRow[]>;
@@ -232,7 +397,28 @@ export interface StaffOps {
   customerDetail(id: string): Promise<CustomerDetail>;
   createCustomer(input: CustomerInput): Promise<{ id: string }>;
   updateCustomer(id: string, version: string, input: CustomerInput & { reason: string | null }): Promise<void>;
+
+  scheduleOverview(): Promise<ScheduleOverview>;
+  catalogue(): Promise<Catalogue>;
+  scheduleConflicts(): Promise<ConflictRow[]>;
+  setBusinessHours(hours: ScheduleOverview['hours'], version: string, opts: ChangeOptions): Promise<ConflictSummary>;
+  setTherapistWeek(therapistId: string, shifts: WeekPeriod[], breaks: WeekPeriod[], version: string, opts: ChangeOptions): Promise<ConflictSummary>;
+  addTimeOff(therapistId: string, startsAt: string, endsAt: string, note: string | null, opts: ChangeOptions): Promise<ConflictSummary>;
+  removeTimeOff(id: string, reason: string | null): Promise<void>;
+  addBlackout(startsAt: string, endsAt: string, note: string | null, opts: ChangeOptions): Promise<ConflictSummary>;
+  removeBlackout(id: string, reason: string | null): Promise<void>;
+  updateBookingRules(version: string, rules: BookingRulesInput, reason: string): Promise<void>;
+  saveService(id: string | null, version: string | null, input: ServiceInput, opts: ChangeOptions): Promise<{ id: string; conflicts: ConflictSummary }>;
+  setPackageItems(packageId: string, serviceIds: string[], version: string, reason: string | null): Promise<void>;
+  saveTherapist(id: string | null, version: string | null, input: TherapistInput, opts: ChangeOptions): Promise<{ id: string; conflicts: ConflictSummary }>;
+  setTherapistServices(therapistId: string, serviceIds: string[], version: string, opts: ChangeOptions): Promise<ConflictSummary>;
+  saveZone(id: string | null, version: string | null, input: ZoneInput, opts: ChangeOptions): Promise<{ id: string; conflicts: ConflictSummary }>;
 }
+
+const weekToDb = (periods: WeekPeriod[]) =>
+  periods.map((p) => ({ day_of_week: p.dayOfWeek, start_time: p.startTime, end_time: p.endTime }));
+const weekFromDb = (periods: any[]): WeekPeriod[] =>
+  periods.map((p) => ({ dayOfWeek: p.day_of_week, startTime: p.start_time, endTime: p.end_time }));
 
 // ---------------------------------------------------------------------------
 // Supabase implementation
@@ -250,7 +436,7 @@ export function createSupabaseOps(client: SupabaseClient): StaffOps {
       return {
         today: d.today, todayTotal: d.today_total, todayRemaining: d.today_remaining, todayCompleted: d.today_completed,
         todayNoShow: d.today_no_show, todayToCollect: d.today_to_collect, awaitingOutcome: d.awaiting_outcome,
-        refundsFlagged: d.refunds_flagged, next7Days: d.next_7_days,
+        refundsFlagged: d.refunds_flagged, next7Days: d.next_7_days, scheduleConflicts: d.schedule_conflicts ?? 0,
       };
     },
 
@@ -396,6 +582,142 @@ export function createSupabaseOps(client: SupabaseClient): StaffOps {
         p_customer_id: id, p_expected_updated_at: version, p_full_name: input.fullName, p_email: input.email,
         p_phone: input.phone, p_staff_notes: input.staffNotes, p_reason: input.reason,
       });
+    },
+
+    async scheduleOverview() {
+      const o = await call('staff_schedule_overview');
+      const r = o.rules;
+      return {
+        hours: o.hours.map((h: any) => ({ dayOfWeek: h.day_of_week, isClosed: h.is_closed, opensAt: h.opens_at, closesAt: h.closes_at })),
+        hoursVersion: o.hours_version,
+        therapists: o.therapists.map((t: any) => ({
+          id: t.id, name: t.name, isActive: t.is_active, weekVersion: t.week_version, shifts: weekFromDb(t.shifts), breaks: weekFromDb(t.breaks),
+        })),
+        timeOff: o.time_off.map((x: any) => ({ id: x.id, therapistId: x.therapist_id, therapistName: x.therapist_name, startsAt: x.starts_at, endsAt: x.ends_at, note: x.note })),
+        blackouts: o.blackouts.map((x: any) => ({ id: x.id, startsAt: x.starts_at, endsAt: x.ends_at, note: x.note })),
+        rules: {
+          businessName: r.business_name, timezone: r.timezone, holdMinutes: r.hold_minutes, minLeadMinutes: r.min_lead_minutes,
+          maxAdvanceDays: r.max_advance_days, slotIntervalMinutes: r.slot_interval_minutes, defaultBufferMinutes: r.default_buffer_minutes,
+          updatedAt: r.updated_at,
+        },
+        conflictCount: Number(o.conflict_count),
+      };
+    },
+
+    async catalogue() {
+      const c = await call('staff_catalogue');
+      return {
+        services: c.services.map((s: any) => ({
+          id: s.id, slug: s.slug, name: s.name, category: s.category, description: s.description, benefits: s.benefits ?? [],
+          durationMinutes: s.duration_minutes, bufferMinutes: s.buffer_minutes, priceMinor: Number(s.price_minor),
+          compareAtPriceMinor: s.compare_at_price_minor === null ? null : Number(s.compare_at_price_minor), currency: s.currency,
+          isPackage: s.is_package, isPopular: s.is_popular, isActive: s.is_active, sortOrder: s.sort_order, updatedAt: s.updated_at,
+          futureAppointments: Number(s.future_appointments), liveReservations: Number(s.live_reservations),
+          items: s.items.map((i: any) => ({ serviceId: i.service_id, name: i.name })), itemsVersion: s.items_version,
+        })),
+        therapists: c.therapists.map((t: any) => ({
+          id: t.id, displayName: t.display_name, title: t.title, specialty: t.specialty, bio: t.bio, isActive: t.is_active,
+          sortOrder: t.sort_order, updatedAt: t.updated_at, hasAccount: t.has_account, serviceIds: t.service_ids,
+          servicesVersion: t.services_version, futureAppointments: Number(t.future_appointments),
+        })),
+        zones: c.zones.map((z: any) => ({
+          id: z.id, key: z.key, name: z.name, feeMinor: Number(z.fee_minor), isActive: z.is_active, sortOrder: z.sort_order,
+          updatedAt: z.updated_at, futureAppointments: Number(z.future_appointments),
+        })),
+      };
+    },
+
+    async scheduleConflicts() {
+      const rows = await call<any[]>('staff_schedule_conflicts');
+      return rows.map((r) => ({
+        id: r.appointment_id, reference: r.reference, startsAt: r.starts_at, endsAt: r.ends_at, status: r.status,
+        serviceName: r.service_name, therapistId: r.therapist_id, therapistName: r.therapist_name, contactName: r.contact_name,
+        locationType: r.location_type, zoneName: r.zone_name, reasons: r.reasons,
+      }));
+    },
+
+    async setBusinessHours(hours, version, opts) {
+      const r = await call('staff_set_business_hours', {
+        p_hours: hours.map((h) => ({ day_of_week: h.dayOfWeek, is_closed: h.isClosed, opens_at: h.opensAt, closes_at: h.closesAt })),
+        p_expected_version: version, p_reason: opts.reason, p_confirm: opts.confirm,
+      });
+      return mapSummary(r.conflicts);
+    },
+
+    async setTherapistWeek(therapistId, shifts, breaks, version, opts) {
+      const r = await call('staff_set_therapist_week', {
+        p_therapist_id: therapistId, p_shifts: weekToDb(shifts), p_breaks: weekToDb(breaks), p_expected_version: version,
+        p_reason: opts.reason, p_confirm: opts.confirm,
+      });
+      return mapSummary(r.conflicts);
+    },
+
+    async addTimeOff(therapistId, startsAt, endsAt, note, opts) {
+      const r = await call('staff_add_time_off', {
+        p_therapist_id: therapistId, p_starts_at: startsAt, p_ends_at: endsAt, p_note: note, p_reason: opts.reason, p_confirm: opts.confirm,
+      });
+      return mapSummary(r.conflicts);
+    },
+
+    async removeTimeOff(id, reason) {
+      await call('staff_remove_time_off', { p_time_off_id: id, p_reason: reason });
+    },
+
+    async addBlackout(startsAt, endsAt, note, opts) {
+      const r = await call('staff_add_blackout', { p_starts_at: startsAt, p_ends_at: endsAt, p_note: note, p_reason: opts.reason, p_confirm: opts.confirm });
+      return mapSummary(r.conflicts);
+    },
+
+    async removeBlackout(id, reason) {
+      await call('staff_remove_blackout', { p_blackout_id: id, p_reason: reason });
+    },
+
+    async updateBookingRules(version, rules, reason) {
+      await call('staff_update_booking_rules', {
+        p_expected_updated_at: version, p_reason: reason, p_hold_minutes: rules.holdMinutes, p_min_lead_minutes: rules.minLeadMinutes,
+        p_max_advance_days: rules.maxAdvanceDays, p_slot_interval_minutes: rules.slotIntervalMinutes,
+        p_default_buffer_minutes: rules.defaultBufferMinutes,
+      });
+    },
+
+    async saveService(id, version, s, opts) {
+      const r = await call('staff_save_service', {
+        p_service_id: id, p_expected_updated_at: version, p_reason: opts.reason, p_confirm: opts.confirm,
+        p_fields: {
+          slug: s.slug, name: s.name, category: s.category, description: s.description, benefits: s.benefits,
+          duration_minutes: s.durationMinutes, buffer_minutes: s.bufferMinutes, price_minor: s.priceMinor,
+          compare_at_price_minor: s.compareAtPriceMinor, is_popular: s.isPopular, is_active: s.isActive, sort_order: s.sortOrder,
+          is_package: s.isPackage,
+        },
+      });
+      return { id: r.id, conflicts: mapSummary(r.conflicts) };
+    },
+
+    async setPackageItems(packageId, serviceIds, version, reason) {
+      await call('staff_set_package_items', { p_package_id: packageId, p_service_ids: serviceIds, p_expected_version: version, p_reason: reason });
+    },
+
+    async saveTherapist(id, version, t, opts) {
+      const r = await call('staff_save_therapist', {
+        p_therapist_id: id, p_expected_updated_at: version, p_reason: opts.reason, p_confirm: opts.confirm,
+        p_fields: { display_name: t.displayName, title: t.title, specialty: t.specialty, bio: t.bio, is_active: t.isActive, sort_order: t.sortOrder },
+      });
+      return { id: r.id, conflicts: mapSummary(r.conflicts) };
+    },
+
+    async setTherapistServices(therapistId, serviceIds, version, opts) {
+      const r = await call('staff_set_therapist_services', {
+        p_therapist_id: therapistId, p_service_ids: serviceIds, p_expected_version: version, p_reason: opts.reason, p_confirm: opts.confirm,
+      });
+      return mapSummary(r.conflicts);
+    },
+
+    async saveZone(id, version, z, opts) {
+      const r = await call('staff_save_zone', {
+        p_zone_id: id, p_expected_updated_at: version, p_reason: opts.reason, p_confirm: opts.confirm,
+        p_fields: { key: z.key, name: z.name, fee_minor: z.feeMinor, is_active: z.isActive, sort_order: z.sortOrder },
+      });
+      return { id: r.id, conflicts: mapSummary(r.conflicts) };
     },
   };
 }

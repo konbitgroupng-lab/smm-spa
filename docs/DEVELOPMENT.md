@@ -1,6 +1,6 @@
 # Development guide
 
-SMM is a React 19 + Vite + Tailwind site backed by Supabase (Postgres, Auth, Row Level Security, Storage, Edge Functions). This guide covers Phases 1-4 and Phase 5a-5b (staff security foundation; appointment and customer operations): what exists, how to run it, and the rules the rest of the build relies on.
+SMM is a React 19 + Vite + Tailwind site backed by Supabase (Postgres, Auth, Row Level Security, Storage, Edge Functions). This guide covers Phases 1-4 and Phase 5a-5c (staff security foundation; appointment and customer operations; schedule and catalogue): what exists, how to run it, and the rules the rest of the build relies on.
 
 ## Current state
 
@@ -14,7 +14,8 @@ SMM is a React 19 + Vite + Tailwind site backed by Supabase (Postgres, Auth, Row
 | Public booking funnel and confirmation page | Done (Phase 4); see "Booking funnel". |
 | Staff security foundation: role hardening, audit log, staff functions, two-factor readiness | Done (Phase 5a); see "Authentication and authorization". |
 | Appointment and customer operations | Done (Phase 5b): staff home, bookings (list, day by therapist, week), appointment detail and actions, phone/WhatsApp bookings, customers, therapist agenda. See "Appointment operations". |
-| Staff app (`/staff/`) | Sign-in, password links, role-based navigation, own account (5a); the 5b screens above. Schedules, catalogue, payments, staff accounts, settings and activity log arrive in 5c-5d. |
+| Schedule and catalogue management | Done (Phase 5c): opening hours, therapist weeks, time off, closures, booking rules, conflicts; treatments, packages, therapists and their treatments, in-home areas. See "Schedule and catalogue". |
+| Staff app (`/staff/`) | Sign-in, password links, role-based navigation, own account (5a); the 5b and 5c screens above. Payments, staff accounts, settings and activity log arrive in 5d. |
 | CMS, analytics, notifications | Phase 6; see "Deferred to Phases 5 and 6". |
 
 ## Quick start
@@ -261,11 +262,11 @@ No domain code changes: the switch is configuration plus one end-to-end test. Us
 | Guest (`anon`) | Read 14 public tables (active services, therapists, zones, opening hours, settings, published content). Call one function, `get_available_slots`; holds and payments go through the Edge Functions. No access to the `private` schema, staff functions, customers, appointments, payments, holds or the audit log. |
 | Signed in, no staff access (new or deactivated account) | Read their own profile; `staff_whoami()` reports why there is no access. Nothing else. |
 | Therapist | Their own schedule, breaks and time off; their own appointments **only** through `therapist_agenda()` (booking contact name and phone, address, guest notes, booking notes, source, paid / deposit paid / to collect; no email, customer master record, staff notes, amounts or payment details; since 5b no direct read of the appointments table); mark their own started appointments completed or no-show; intake answers for those appointments (unused until Phase 6); blackout dates; their own name and phone. No direct writes. |
-| Admin | Read appointments, customers, holds, payments, staff profiles and the audit log. All appointment and customer actions through the 5b functions (create phone/WhatsApp bookings, reschedule with rule override, cancel, outcomes and corrections, booking details, settlement, customer records). Edit the catalogue, schedules, content and media; booking rules through `staff_update_booking_rules()`. |
+| Admin | Read appointments, customers, holds, payments, staff profiles and the audit log. All appointment and customer actions through the 5b functions (create phone/WhatsApp bookings, reschedule with rule override, cancel, outcomes and corrections, booking details, settlement, customer records). Schedules and the catalogue through the 5c functions (versioned, audited, conflict-checked); booking rules through `staff_update_booking_rules()`. Content and media (Phase 6). |
 | Owner | Everything an admin can, plus staff roles and activation, linking therapist records to accounts, and payment settings. |
 | `service_role` (Edge Functions) | The only writer of `booking_holds`, `payments` and `payment_events`, so payment figures cannot be edited from the staff app. |
 
-Nobody, from the app, can: write appointments, customers, profiles or business settings directly (only through the functions below or the server); attach a provider payment to a phone or WhatsApp booking (a trigger refuses it, whoever asks); delete customers, services, therapists or dispatch zones (they are deactivated, decision H); change which account a therapist record belongs to except through `owner_link_therapist()`; change `allow_demo_payments` (no function exposes it; it is changed only in the SQL editor); edit or delete the audit log.
+Nobody, from the app, can: write appointments, customers, profiles, business settings, opening hours, shifts, breaks, time off, closures, services, packages, therapists, therapist treatments or in-home areas directly (only through the functions below or the server); attach a provider payment to a phone or WhatsApp booking (a trigger refuses it, whoever asks); delete customers, services, therapists or dispatch zones (they are deactivated, decision H); change which account a therapist record belongs to except through `owner_link_therapist()`; change `allow_demo_payments` (no function exposes it; it is changed only in the SQL editor); edit or delete the audit log.
 
 ### Staff functions
 
@@ -284,9 +285,11 @@ All are `security definer` with a fixed `search_path`, executable by signed-in u
 
 Added in 5b (see "Appointment operations"): `staff_create_booking`, `staff_reschedule_appointment`, `staff_cancel_appointment`, `staff_set_appointment_status`, `staff_update_booking_details`, `staff_set_settlement`, `staff_create_customer`, `staff_update_customer`, and the reads `staff_appointments`, `staff_appointment_detail`, `staff_customer_directory`, `staff_customer_detail`, `staff_dashboard`, `staff_booking_options`. `therapist_agenda` was replaced with a version that adds booking notes, source and the version for outcome changes.
 
+Added in 5c (see "Schedule and catalogue"): `staff_set_business_hours`, `staff_set_therapist_week`, `staff_add_time_off`, `staff_remove_time_off`, `staff_add_blackout`, `staff_remove_blackout`, `staff_save_service`, `staff_set_package_items`, `staff_save_therapist`, `staff_set_therapist_services`, `staff_save_zone`, and the reads `staff_schedule_overview`, `staff_catalogue`, `staff_schedule_conflicts`. `staff_dashboard` adds `schedule_conflicts`.
+
 There is always at least one active owner: a trigger refuses to demote, deactivate or delete the last one (`last_owner`), whoever asks, and is serialised so two owners demoting each other at the same moment cannot both succeed.
 
-Error codes the staff app explains: `not_authorized`, `stale_record`, `reason_required`, `invalid_profile`, `last_owner`, `not_found`, `invalid_range`, and from 5b `slot_unavailable` and `schedule_rule` (both with the rule in the error detail), `invalid_status`, `appointment_started`, `start_in_past`, `not_started`, `invalid_contact`, `invalid_customer`, `address_required`, `address_not_applicable`, `dispatch_zone_required`, `therapist_unavailable`, `email_in_use`, `invalid_source`.
+Error codes the staff app explains: `not_authorized`, `stale_record`, `reason_required`, `invalid_profile`, `last_owner`, `not_found`, `invalid_range`, and from 5b `slot_unavailable` and `schedule_rule` (both with the rule in the error detail), `invalid_status`, `appointment_started`, `start_in_past`, `not_started`, `invalid_contact`, `invalid_customer`, `address_required`, `address_not_applicable`, `dispatch_zone_required`, `therapist_unavailable`, `email_in_use`, `invalid_source`, and from 5c `confirmation_required` (affected bookings as JSON in the error detail), `invalid_schedule`, `invalid_period`, `invalid_service`, `invalid_package`, `invalid_therapist`, `invalid_services`, `invalid_zone`, `slug_in_use`, `key_in_use`.
 
 **Versions are passed back as received.** `updated_at` has microsecond precision; it must travel as the string the server sent (JSON keeps it). Converting it to a JavaScript `Date` drops the microseconds and every edit then fails as stale.
 
@@ -332,7 +335,7 @@ The website stores nothing in `localStorage`. The old booking form's `everest_bo
 | Server access | `lib/backend.ts` | The `StaffBackend` interface and its Supabase implementation; `accessFor()` turns `staff_whoami()` into what to show; `messageFor()` turns error codes into plain messages. |
 | Links | `lib/authLink.ts` | Recognises invite, recovery and expired links in the fragment. |
 | Screens | `StaffApp.tsx`, `StaffShell.tsx`, `screens/` | Sign in, forgot password, set password (invite and reset), account not active, extra verification needed, the signed-in shell, My account. |
-| Sections | `sections.ts`, `router.ts` | Which sections each role sees; `#/<section>/<id>?<params>` routing. Owner/admin: Today, Bookings, Customers (5b) and placeholders for 5c-5d; therapist: My agenda and My account. |
+| Sections | `sections.ts`, `router.ts` | Which sections each role sees; `#/<section>/<id>?<params>` routing. Owner/admin: Today, Bookings, Customers (5b), Schedules and Services & therapists (5c), and placeholders for 5d; therapist: My agenda and My account. |
 | Operations | `lib/ops.ts`, `screens/` | The 5b data layer (one database function per call) and screens: `HomeScreen`, `BookingsScreen`, `AppointmentDetailScreen`, `NewBookingScreen`, `CustomersScreen`, `AgendaScreen`. Times are shown and entered in the business timezone. |
 
 Coming back to the tab re-checks access (`staff_whoami`) at most every 15 seconds, as do token refreshes; a failed background check leaves the screen as it is. This only updates what the app shows: the database refuses a deactivated or demoted account on its very next request either way.
@@ -356,6 +359,27 @@ Migration `20261011000100_staff_appointment_operations.sql`.
 **Booking contact versus customer record.** `staff_update_booking_details` changes the contact name and phone, the in-home address and the booking notes of one booking; `staff_update_customer` changes the customer master record. Neither touches the other. Customer records are no longer writable directly, only through these versioned, audited functions.
 
 Audit actions: `appointment.created_by_staff`, `appointment.rescheduled`, `appointment.cancelled` (with any flagged payment ids), `appointment.completed`, `appointment.no_show`, `appointment.status_corrected`, `appointment.details_updated`, `appointment.settlement_changed`, `customer.created`, `customer.updated`. Booking notes join the personal fields recorded only as changed.
+
+## Schedule and catalogue (Phase 5c)
+
+Migration `20261012000100_staff_schedule_catalogue.sql`.
+
+**One rule set.** `private.schedule_block_reason()` holds the opening-hours, closure, shift, break and time-off checks. `private.slot_block_reason()` (availability, holds, staff bookings, rescheduling and the payment re-check) calls it, with the same checks in the same order as before, and conflict detection uses it too.
+
+**Every change goes through a function** (owner/admin) that:
+
+1. takes the schedule-rules lock exclusively, before anything else; payments, staff bookings and reschedules hold it shared, so they either finish before the change or see it;
+2. checks the version the screen showed (`updated_at` for services, therapists and areas; a fingerprint of the rows for opening hours, a therapist's week, a therapist's treatments and a package's contents);
+3. makes the change, labelled for the audit log;
+4. compares conflicts before and after. If the change puts any future booking in conflict, or would make a live guest reservation unpayable, it is refused with `confirmation_required` and the affected bookings, unless it is sent again with `p_confirm` and a reason. The acceptance is audited as `schedule.conflicts_accepted` (booking ids and reasons only, no names).
+
+**Conflicts are never resolved by cancelling.** No schedule or catalogue function writes appointments, holds or payments. A future booking is in conflict when it is outside opening hours, in a closure, outside its therapist's shift, in a break or time off, or its treatment, therapist or in-home area is inactive, or its therapist no longer offers the treatment. Conflicts are listed in Schedules › Conflicts and counted on the Today screen; a booking leaves the list as soon as nothing conflicts with it. Booking-time rules (notice, booking window, grid) apply only when booking, so they never make an existing booking a conflict.
+
+**Bookings keep what they were booked with.** Price, travel fee, length and buffer are copied onto each booking (and onto a payment when it starts), so catalogue changes never alter them. A guest who is mid-payment for a treatment whose length or buffer then changes, or whose time becomes unavailable, is refused at the payment re-check and the payment is flagged for refund (Phase 3 behaviour); such reservations are counted in the warning.
+
+**Deactivate, never delete.** Treatments, therapists and areas are deactivated; they stay on existing bookings and in history. Time off and closures are removed (removal only frees time). Package contents and the treatments a therapist offers are replaced as a whole.
+
+Audit actions: `schedule.hours_changed`, `schedule.therapist_week_changed`, `schedule.time_off_added` / `_removed`, `schedule.blackout_added` / `_removed`, `schedule.conflicts_accepted`, `catalogue.service_created` / `_updated`, `catalogue.package_items_changed`, `catalogue.therapist_created` / `_updated`, `catalogue.therapist_services_changed`, `catalogue.zone_created` / `_updated`. Time-off notes are recorded only as changed (they may concern health).
 
 ## Booking funnel
 
@@ -395,7 +419,7 @@ Not part of the funnel, by decision:
 
 - Customer accounts, and guest self-service cancel or reschedule. The confirmation asks guests to message or call.
 - Intake questions (moved to Phase 6, decision N; Phase 5 collects no intake or health data).
-- Staff screens for schedules, catalogue, payments, staff accounts, settings and the activity log (Phase 5c-5d).
+- Staff screens for payments, staff accounts, settings and the activity log (Phase 5d).
 - CMS editing; FAQs, gallery and testimonials from the database; analytics (Phase 6).
 - Email, SMS and WhatsApp confirmations and reminders.
 - Refund initiation.
@@ -439,6 +463,9 @@ Not part of the funnel, by decision:
 | `tests/db/staff-appointments-concurrency.test.ts` | 5b races on real PostgreSQL: phone booking against guest holds and late payments, reschedule against holds and payments, two staff on one booking, cancellation against payment replays, refunds and new holds |
 | `tests/staff/screens.test.tsx` | Every 5b screen against a scripted backend: what it shows, what it sends, how it reports refusals |
 | `tests/staff/staff-operations.test.ts` | The staff data layer over HTTP against the real 5b functions, for owner/admin and therapist |
+| `tests/db/staff-schedule-catalogue.test.ts` | 5c: every function against every role; no direct writes; conflicts for closed days, shifts, time off, closures, deactivations, removed treatments and areas; confirmation and its audit; booked prices, fees and lengths unchanged; package and version checks |
+| `tests/db/staff-schedule-concurrency.test.ts` | 5c races on real PostgreSQL: time off against guest holds, payments and reschedules; closures, shift changes, deactivations against staff bookings; duration change against a payment; two week edits from one version |
+| `tests/staff/schedule-catalogue-screens.test.tsx` | The Schedules and Services & therapists screens, including the confirm-with-reason flow |
 | `tests/staff/client-separation.test.ts` | The website's client keeps no session and ignores login links; separate storage keys; no staff imports or secrets in the website |
 
 The local test backend (`tests/support/local-backend.ts`) serves the real Edge Function handlers and the database's REST reads and RPC calls over HTTP, so the site's own code can be tested end to end without Docker or a Supabase account. Given a `staffPassword`, it also stands in for Supabase Auth (password sign-in with unsigned test tokens) and runs RPC calls as the signed-in user.
@@ -475,6 +502,13 @@ Decide or fix these in the booking-funnel and payment phases:
 - **Who may override.** Owner and admin may override scheduling rules when rescheduling.
 - **Paid offline.** No amount is recorded for offline payments; the booking's price is the reference. Refunds for offline payments are arranged outside the system.
 - **Timezone.** The staff app shows and takes times in the business timezone (Africa/Lagos), whatever the device's.
+
+## Phase 5c decisions and limits
+
+- **Guest reservations are not serialised with schedule changes.** Creating a hold (`request_booking_hold`) still does not take the schedule-rules lock (see open issues). A reservation made in the same instant as a schedule change may not be in the warning; it is still refused at payment by the re-check.
+- **In-home areas are not re-checked at payment.** A guest mid-payment when their area is deactivated still gets the booking; it then appears as a conflict (`zone_inactive`).
+- **Overridden reschedules stay listed.** A booking moved with a rule override remains in Conflicts while the rule it overrode applies.
+- **One shift and one break per day in the screens.** The database allows more; the weekly editor shows and saves one of each.
 
 ## Going to a hosted Supabase project
 

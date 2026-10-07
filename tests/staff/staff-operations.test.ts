@@ -3,7 +3,7 @@ import type { PGlite } from '@electric-sql/pglite';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createSupabaseBackend, messageFor, StaffError } from '../../src/staff/lib/backend';
 import { STAFF_AUTH_OPTIONS } from '../../src/staff/lib/client';
-import { createSupabaseOps, type StaffOps } from '../../src/staff/lib/ops';
+import { conflictsOf, createSupabaseOps, type StaffOps } from '../../src/staff/lib/ops';
 import { dateRange } from '../../src/staff/lib/time';
 import { createStaff, createTestDb, one } from '../db/harness';
 import { at, upcoming, WED } from '../db/dates';
@@ -138,5 +138,52 @@ describe('therapist operations end to end', () => {
     expect((await failure(ops.appointments(today.from, today.to))).code).toBe('not_authorized');
     expect((await failure(ops.customers('', 10, 0))).code).toBe('not_authorized');
     expect((await failure(ops.setStatus(item.id, 'no_show', (await ops.agenda(today.from, today.to)).find((a) => a.id === item.id)!.updatedAt, 'oops'))).code).toBe('not_authorized');
+  });
+});
+
+describe('schedule and catalogue end to end (5c)', () => {
+  it('a closure over a booking comes back as a list to confirm; confirmed, the booking stays and is listed', async () => {
+    const ops = await signedIn('admin@example.com');
+    const options = await ops.bookingOptions();
+    const swedish = options.services.find((s) => s.name === 'Swedish Massage')!;
+    const day = upcoming(WED, 3);
+    const slot = (await ops.availableSlots(swedish.id, day, null))[0];
+    const { id } = await ops.createBooking({
+      source: 'phone', settlement: 'pay_at_venue', serviceId: swedish.id, startsAt: slot.startsAt, therapistId: slot.therapistId,
+      locationType: 'sanctuary', dispatchZoneId: null, serviceAddress: null, customerId: null, customerName: 'Closure Guest',
+      customerEmail: null, customerPhone: '+2348035559999', contactName: null, contactPhone: null, bookingNotes: null, reason: 'Called to book',
+    });
+    const from = dateRange(day, day).from;
+    const to = dateRange(day, day).to;
+    const refused = await failure(ops.addBlackout(from, to, 'Public holiday', { reason: null, confirm: false }));
+    expect(refused.code).toBe('confirmation_required');
+    const summary = conflictsOf(refused)!;
+    expect(summary.appointments).toEqual([expect.objectContaining({ id, contactName: 'Closure Guest', reasons: ['blackout'] })]);
+    expect((await failure(ops.addBlackout(from, to, 'Public holiday', { reason: null, confirm: true }))).code).toBe('reason_required');
+    const accepted = await ops.addBlackout(from, to, 'Public holiday', { reason: 'Declared a public holiday', confirm: true });
+    expect(accepted.appointments.map((a) => a.id)).toEqual([id]);
+    expect((await ops.scheduleConflicts()).find((c) => c.id === id)).toMatchObject({ reasons: ['blackout'], contactName: 'Closure Guest' });
+    expect((await ops.appointmentDetail(id)).appointment.status).toBe('confirmed');
+    const overview = await ops.scheduleOverview();
+    await ops.removeBlackout(overview.blackouts.find((b) => b.note === 'Public holiday')!.id, null);
+    expect((await ops.scheduleConflicts()).find((c) => c.id === id)).toBeUndefined();
+  });
+
+  it('catalogue edits carry their versions; therapists cannot reach any of it', async () => {
+    const ops = await signedIn('admin@example.com');
+    const before = (await ops.catalogue()).services.find((s) => s.slug === 'hot-stone')!;
+    const input = {
+      slug: before.slug, name: before.name, category: before.category, description: before.description, benefits: before.benefits,
+      durationMinutes: before.durationMinutes, bufferMinutes: before.bufferMinutes, priceMinor: 5500000,
+      compareAtPriceMinor: before.compareAtPriceMinor, isPopular: before.isPopular, isActive: true, sortOrder: before.sortOrder, isPackage: false,
+    };
+    await ops.saveService(before.id, before.updatedAt, input, { reason: null, confirm: false });
+    expect((await ops.catalogue()).services.find((s) => s.id === before.id)!.priceMinor).toBe(5500000);
+    expect((await failure(ops.saveService(before.id, before.updatedAt, input, { reason: null, confirm: false }))).code).toBe('stale_record');
+
+    const therapist = await signedIn('therapist@example.com');
+    expect((await failure(therapist.scheduleOverview())).code).toBe('not_authorized');
+    expect((await failure(therapist.catalogue())).code).toBe('not_authorized');
+    expect((await failure(therapist.addBlackout(new Date(Date.now() + 86_400_000).toISOString(), new Date(Date.now() + 2 * 86_400_000).toISOString(), null, { reason: null, confirm: false }))).code).toBe('not_authorized');
   });
 });

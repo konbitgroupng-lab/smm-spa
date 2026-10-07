@@ -1,6 +1,7 @@
 import { vi } from 'vitest';
 import type {
-  AgendaItem, AppointmentDetail, AppointmentRow, BookingOptions, CustomerDetail, CustomerRow, Dashboard, StaffOps,
+  AgendaItem, AppointmentDetail, AppointmentRow, BookingOptions, Catalogue, ConflictRow, CustomerDetail, CustomerRow, Dashboard,
+  ScheduleOverview, StaffOps,
 } from '../../src/staff/lib/ops';
 
 // A scripted StaffOps for screen tests. Each method is a vi.fn returning the
@@ -54,7 +55,7 @@ export const OPTIONS: BookingOptions = {
 
 export const DASHBOARD: Dashboard = {
   today: '2026-10-08', todayTotal: 5, todayRemaining: 3, todayCompleted: 1, todayNoShow: 1, todayToCollect: 2,
-  awaitingOutcome: 1, refundsFlagged: 2, next7Days: 12,
+  awaitingOutcome: 1, refundsFlagged: 2, next7Days: 12, scheduleConflicts: 1,
 };
 
 export function agendaItem(overrides: Partial<AgendaItem> = {}): AgendaItem {
@@ -84,6 +85,53 @@ export function customerDetail(): CustomerDetail {
   };
 }
 
+
+const WEEK = [1, 2, 3, 4, 5, 6].map((d) => ({ dayOfWeek: d, startTime: '09:00', endTime: '20:00' }));
+const BREAKS = [1, 2, 3, 4, 5, 6].map((d) => ({ dayOfWeek: d, startTime: '13:00', endTime: '14:00' }));
+
+export function scheduleOverview(): ScheduleOverview {
+  return {
+    hours: [0, 1, 2, 3, 4, 5, 6].map((d) => ({ dayOfWeek: d, isClosed: false, opensAt: '09:00', closesAt: '21:00' })),
+    hoursVersion: 'hours-v1',
+    therapists: [
+      { id: 't-1', name: 'Senior Massage Therapist', isActive: true, weekVersion: 'week-t1', shifts: WEEK, breaks: BREAKS },
+      { id: 't-2', name: 'Lead Spa Therapist', isActive: true, weekVersion: 'week-t2', shifts: WEEK, breaks: BREAKS },
+    ],
+    timeOff: [{ id: 'off-1', therapistId: 't-2', therapistName: 'Lead Spa Therapist', startsAt: '2026-11-02T08:00:00Z', endsAt: '2026-11-06T20:00:00Z', note: 'Annual leave' }],
+    blackouts: [{ id: 'bo-1', startsAt: '2026-12-24T23:00:00Z', endsAt: '2026-12-25T23:00:00Z', note: 'Christmas Day' }],
+    rules: { businessName: 'SMM', timezone: 'Africa/Lagos', holdMinutes: 10, minLeadMinutes: 120, maxAdvanceDays: 60, slotIntervalMinutes: 30, defaultBufferMinutes: 15, updatedAt: V1 },
+    conflictCount: 1,
+  };
+}
+
+export function catalogue(): Catalogue {
+  const service = (id: string, name: string, extra: Partial<Catalogue['services'][number]> = {}) => ({
+    id, slug: name.toLowerCase().replace(/ /g, '-'), name, category: 'Relaxation', description: 'A treatment.', benefits: ['Calm'],
+    durationMinutes: 60, bufferMinutes: 15, priceMinor: 4000000, compareAtPriceMinor: null, currency: 'NGN', isPackage: false,
+    isPopular: false, isActive: true, sortOrder: 1, updatedAt: V1, futureAppointments: 0, liveReservations: 0, items: [], itemsVersion: 'items-v0', ...extra,
+  });
+  return {
+    services: [
+      service('s-1', 'Swedish Massage', { futureAppointments: 3 }),
+      service('s-2', 'Hot Stone Therapy', { sortOrder: 2, priceMinor: 5000000 }),
+      service('s-3', 'Thai Massage', { sortOrder: 3, isActive: false }),
+      service('p-1', 'Essential Escape', { isPackage: true, durationMinutes: 120, priceMinor: 8000000, items: [{ serviceId: 's-1', name: 'Swedish Massage' }], itemsVersion: 'items-v1' }),
+    ],
+    therapists: [
+      { id: 't-1', displayName: 'Senior Massage Therapist', title: 'Swedish', specialty: 'Relaxation', bio: 'Calm hands.', isActive: true, sortOrder: 1,
+        updatedAt: V1, hasAccount: true, serviceIds: ['s-1', 's-2'], servicesVersion: 'svc-t1', futureAppointments: 4 },
+    ],
+    zones: [{ id: 'z-1', key: 'mainland', name: 'Surulere / Yaba', feeMinor: 300000, isActive: true, sortOrder: 1, updatedAt: V1, futureAppointments: 2 }],
+  };
+}
+
+export const CONFLICTS: ConflictRow[] = [{
+  id: 'appt-7', reference: 'SMM-CCCC3333', startsAt: '2026-10-21T09:00:00Z', endsAt: '2026-10-21T10:00:00Z', status: 'confirmed',
+  serviceName: 'Swedish Massage', therapistId: 't-1', therapistName: 'Senior Massage Therapist', contactName: 'Conflict Guest',
+  locationType: 'sanctuary', zoneName: null, reasons: ['outside_shift', 'time_off'],
+}];
+
+const NO_CONFLICTS = { appointments: [], reservations: 0 };
 export function fakeOps(): { [K in keyof StaffOps]: ReturnType<typeof vi.fn> } & StaffOps {
   return {
     dashboard: vi.fn(async () => DASHBOARD),
@@ -105,5 +153,20 @@ export function fakeOps(): { [K in keyof StaffOps]: ReturnType<typeof vi.fn> } &
     customerDetail: vi.fn(async () => customerDetail()),
     createCustomer: vi.fn(async () => ({ id: 'c-new' })),
     updateCustomer: vi.fn(async () => {}),
+    scheduleOverview: vi.fn(async () => scheduleOverview()),
+    catalogue: vi.fn(async () => catalogue()),
+    scheduleConflicts: vi.fn(async () => CONFLICTS),
+    setBusinessHours: vi.fn(async () => NO_CONFLICTS),
+    setTherapistWeek: vi.fn(async () => NO_CONFLICTS),
+    addTimeOff: vi.fn(async () => NO_CONFLICTS),
+    removeTimeOff: vi.fn(async () => {}),
+    addBlackout: vi.fn(async () => NO_CONFLICTS),
+    removeBlackout: vi.fn(async () => {}),
+    updateBookingRules: vi.fn(async () => {}),
+    saveService: vi.fn(async () => ({ id: 's-new', conflicts: NO_CONFLICTS })),
+    setPackageItems: vi.fn(async () => {}),
+    saveTherapist: vi.fn(async () => ({ id: 't-new', conflicts: NO_CONFLICTS })),
+    setTherapistServices: vi.fn(async () => NO_CONFLICTS),
+    saveZone: vi.fn(async () => ({ id: 'z-new', conflicts: NO_CONFLICTS })),
   } as any;
 }

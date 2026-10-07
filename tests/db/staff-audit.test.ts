@@ -56,11 +56,19 @@ describe('audit coverage', () => {
     await db.query(`update profiles set role = 'therapist' where id = $1`, [therapist]);
   });
 
-  it('direct catalogue edits by staff are recorded too', async () => {
-    await asRole(db, 'authenticated', admin, () => db.query(`update services set price_minor = 4100000 where slug = 'swedish'`));
+  it('catalogue edits by staff are recorded with their action', async () => {
+    // Phase 5c: through staff_save_service (direct writes are refused).
+    const s = await one(db, `select * from services where slug = 'swedish'`);
+    const fields = {
+      slug: s.slug, name: s.name, category: s.category, description: s.description, benefits: s.benefits,
+      duration_minutes: s.duration_minutes, buffer_minutes: s.buffer_minutes, price_minor: 4100000,
+      compare_at_price_minor: null, is_popular: s.is_popular, is_active: s.is_active, sort_order: s.sort_order,
+    };
+    await asRole(db, 'authenticated', admin, () => db.query(`select staff_save_service($1, $2, $3)`, [s.id, s.updated_at, JSON.stringify(fields)]));
     const [entry] = await latest('services');
-    expect(entry).toMatchObject({ actor_id: admin, actor_kind: 'staff', action: 'update', reason: null,
+    expect(entry).toMatchObject({ actor_id: admin, actor_kind: 'staff', action: 'catalogue.service_updated', reason: null,
       changes: { price_minor: { old: 4000000, new: 4100000 } } });
+    expect(Object.keys(entry.changes)).toEqual(['price_minor']);
   });
 
   it('guest bookings and server processes are recorded as system', async () => {
@@ -78,6 +86,8 @@ describe('audit coverage', () => {
       await db.exec('set local role authenticated');
       const p = await one(db, `select updated_at from profiles where id = $1`, [owner]);
       await db.query(`select staff_update_own_profile('Owner Name', null, $1)`, [p.updated_at]);
+      // A later change in the same transaction (here by server-side code) carries no label.
+      await db.exec('reset role');
       await db.query(`update services set sort_order = sort_order + 1 where slug = 'swedish'`);
     } finally {
       await db.exec('commit');

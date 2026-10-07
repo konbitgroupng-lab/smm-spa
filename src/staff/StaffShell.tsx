@@ -6,9 +6,11 @@ import { AccountScreen } from './screens/AccountScreen';
 import { AgendaScreen } from './screens/AgendaScreen';
 import { AppointmentDetailScreen } from './screens/AppointmentDetailScreen';
 import { BookingsScreen } from './screens/BookingsScreen';
+import { CatalogueScreen } from './screens/CatalogueScreen';
 import { CustomerDetailScreen, CustomersScreen } from './screens/CustomersScreen';
 import { HomeScreen } from './screens/HomeScreen';
 import { NewBookingScreen } from './screens/NewBookingScreen';
+import { SchedulesScreen } from './screens/SchedulesScreen';
 import { sectionFromHash, sectionsFor, type Section } from './sections';
 
 export function StaffShell({ backend, ops, who, role, email, onRefresh, onSignOut }: {
@@ -101,6 +103,10 @@ function Screen({ section, route, backend, ops, who, role, email, onRefresh }: {
     case 'customers':
       if (sub) return <CustomerDetailScreen key={sub} ops={ops} id={sub} />;
       return <CustomersScreen ops={ops} route={route} />;
+    case 'schedules':
+      return <SchedulesScreen ops={ops} route={route} />;
+    case 'catalogue':
+      return <CatalogueScreen ops={ops} route={route} />;
     default:
       return (
         <section>

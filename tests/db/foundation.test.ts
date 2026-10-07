@@ -180,8 +180,8 @@ describe('RLS: therapists', () => {
     // refused outright for every signed-in user, not just filtered to 0 rows.
     await expect(asRole(db, 'authenticated', therapistAUser, () => db.query(`update appointments set status = 'cancelled'`))).rejects.toThrow(/permission denied/);
     await expect(asRole(db, 'authenticated', therapistAUser, () => db.query(`update profiles set role = 'owner'`))).rejects.toThrow(/permission denied/);
-    const services = await asRole(db, 'authenticated', therapistAUser, async () => (await db.query(`update services set price_minor = 1`)).affectedRows);
-    expect(services).toBe(0);
+    // Phase 5c: the catalogue changes only through staff functions.
+    await expect(asRole(db, 'authenticated', therapistAUser, () => db.query(`update services set price_minor = 1`))).rejects.toThrow(/permission denied/);
     // Phase 5b: customer records change only through staff functions.
     await expect(
       asRole(db, 'authenticated', therapistAUser, () =>

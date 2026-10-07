@@ -73,3 +73,22 @@ export const FIELD_LABEL: Record<string, string> = {
   cancellation_reason: 'Cancellation reason',
   cancelled_by: 'Cancelled by',
 };
+
+/** Why a booking is in conflict with the schedule or catalogue. */
+export const CONFLICT_LABEL: Record<string, string> = {
+  outside_business_hours: 'Outside opening hours',
+  blackout: 'Business closed (blackout)',
+  outside_shift: 'Outside the therapist\'s shift',
+  on_break: 'During the therapist\'s break',
+  time_off: 'Therapist on time off',
+  service_inactive: 'Treatment no longer offered',
+  therapist_inactive: 'Therapist no longer active',
+  therapist_service_removed: 'Therapist no longer offers this treatment',
+  zone_inactive: 'Area no longer served',
+  service_changed: 'Treatment length changed',
+  not_configured: 'Booking settings missing',
+};
+
+export const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+/** Monday first, as staff plan their week. */
+export const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0];

@@ -123,14 +123,16 @@ describe('direct table writes are refused (decision B)', () => {
     expect(await outcome(actor, `delete from dispatch_zones`)).toBe('denied');
   });
 
-  it('owner/admin keep catalogue and schedule management, and customer master edits', async () => {
-    expect(await outcome('admin', `update services set name = name where slug = 'swedish'`)).toBe('ok');
-    expect(await outcome('admin', `update therapists set bio = bio where sort_order = 1`)).toBe('ok');
-    expect(await outcome('admin', `insert into blackout_dates (starts_at, ends_at, reason) values (now() + interval '50 days', now() + interval '51 days', 'test') `)).toBe('ok');
+  it('owner/admin manage the catalogue, schedules and customer records only through their functions', async () => {
+    // Phase 5c: schedule and catalogue tables change only through staff functions.
+    expect(await outcome('admin', `update services set name = name where slug = 'swedish'`)).toBe('denied');
+    expect(await outcome('admin', `update therapists set bio = bio where sort_order = 1`)).toBe('denied');
+    expect(await outcome('admin', `insert into blackout_dates (starts_at, ends_at, reason) values (now() + interval '50 days', now() + interval '51 days', 'test') `)).toBe('denied');
+    expect(await outcome('admin', `select staff_add_blackout(now() + interval '50 days', now() + interval '51 days', 'test')`)).toBe('ok');
     // Phase 5b: customer master edits go through staff_update_customer (versioned, audited).
     expect(await outcome('admin', `update customers set staff_notes = 'x'`)).toBe('denied');
     expect(await outcome('admin', `select staff_update_customer(c.id, c.updated_at, c.full_name, c.email, c.phone, 'prefers mornings') from customers c where email = 'demo.ada@example.com'`)).toBe('ok');
-    expect(await outcome('therapist', `update services set price_minor = 1`)).toBe('ok'); // runs, but RLS lets it change nothing
+    expect(await outcome('therapist', `update services set price_minor = 1`)).toBe('denied');
     expect(Number((await one(db, `select price_minor from services where slug = 'swedish'`)).price_minor)).toBe(4_000_000);
   });
 

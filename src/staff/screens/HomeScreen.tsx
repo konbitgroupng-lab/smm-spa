@@ -33,6 +33,7 @@ export function HomeScreen({ ops }: { ops: StaffOps }) {
             ['Finished, not yet marked', d.awaitingOutcome, 'Past appointments still shown as confirmed (last 7 days).'],
             ['Online payments flagged for refund', d.refundsFlagged, 'Refunds are handled by the owner; nothing is refunded automatically.'],
             ['Bookings in the next 7 days', d.next7Days],
+            ['Bookings in conflict with the schedule', d.scheduleConflicts, 'Still booked; see Schedules › Conflicts.'],
           ];
           return (
             <dl className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-8">
