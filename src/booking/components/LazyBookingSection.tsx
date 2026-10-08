@@ -8,7 +8,7 @@ const BookingSection = lazy(() => import('./BookingSection'));
 function Loading() {
   return (
     <div className="space-y-5 rounded border border-spa-taupe bg-white p-6 text-center shadow-2xl sm:p-10">
-      <p role="status" className="text-sm text-spa-clay">
+      <p role="status" className="text-sm text-spa-clay-text">
         Loading treatments and availability…
       </p>
     </div>

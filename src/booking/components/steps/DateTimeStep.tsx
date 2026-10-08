@@ -45,7 +45,7 @@ export const DateTimeStep = forwardRef<HTMLHeadingElement, { funnel: BookingFunn
                 }`}
               >
                 <input type="radio" name="booking-date" value={date} checked={checked} onChange={() => funnel.selectDate(date)} className="sr-only" aria-label={formatDateLong(date)} />
-                <span className={`text-[11px] uppercase tracking-wider ${checked ? 'text-spa-gold' : 'text-spa-clay'}`} aria-hidden="true">
+                <span className={`text-[11px] uppercase tracking-wider ${checked ? 'text-spa-gold' : 'text-spa-clay-text'}`} aria-hidden="true">
                   {WEEKDAY.format(d)}
                 </span>
                 <span className="font-serif text-xl" aria-hidden="true">{d.getUTCDate()}</span>
@@ -65,14 +65,14 @@ export const DateTimeStep = forwardRef<HTMLHeadingElement, { funnel: BookingFunn
             <button
               type="button"
               onClick={funnel.refreshSlots}
-              className={`-mr-2 inline-flex min-h-11 items-center gap-1 rounded px-2 text-xs text-spa-clay hover:text-spa-charcoal ${focusRing}`}
+              className={`-mr-2 inline-flex min-h-11 items-center gap-1 rounded px-2 text-xs text-spa-clay-text hover:text-spa-charcoal ${focusRing}`}
             >
               <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
               Refresh
             </button>
           </div>
 
-          {loading && <p className="text-sm text-spa-clay">Checking availability…</p>}
+          {loading && <p className="text-sm text-spa-clay-text">Checking availability…</p>}
 
           {!loading && state.slots && slots.length === 0 && (
             <p className="rounded border border-spa-taupe bg-spa-linen p-4 text-sm text-spa-charcoal">
@@ -101,7 +101,7 @@ export const DateTimeStep = forwardRef<HTMLHeadingElement, { funnel: BookingFunn
               ))}
             </ul>
           )}
-          {holding && <p className="text-sm text-spa-clay">Reserving your time…</p>}
+          {holding && <p className="text-sm text-spa-clay-text">Reserving your time…</p>}
         </section>
       )}
 
@@ -109,7 +109,7 @@ export const DateTimeStep = forwardRef<HTMLHeadingElement, { funnel: BookingFunn
 
       <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
         <SecondaryButton onClick={funnel.back} className="w-full sm:w-auto">Back</SecondaryButton>
-        <p className="self-center text-xs text-spa-clay">Choosing a time reserves it for you while you finish booking.</p>
+        <p className="self-center text-xs text-spa-clay-text">Choosing a time reserves it for you while you finish booking.</p>
       </div>
     </div>
   );

@@ -17,8 +17,8 @@ export function PriceBlock({ funnel, currency }: { funnel: BookingFunnel; curren
         <p className="font-serif text-2xl text-spa-charcoal" data-testid="final-amount">
           {formatMoney(payment.amountMinor, payment.currency)}
         </p>
-        {payment.kind === 'deposit' && <p className="text-xs text-spa-clay">of {formatMoney(payment.bookingTotalMinor, payment.currency)} in total</p>}
-        <p className="text-xs text-spa-clay">Confirmed by our booking system.</p>
+        {payment.kind === 'deposit' && <p className="text-xs text-spa-clay-text">of {formatMoney(payment.bookingTotalMinor, payment.currency)} in total</p>}
+        <p className="text-xs text-spa-clay-text">Confirmed by our booking system.</p>
       </div>
     );
   }
@@ -29,9 +29,9 @@ export function PriceBlock({ funnel, currency }: { funnel: BookingFunnel; curren
       <p className="font-serif text-2xl text-spa-charcoal" data-testid="estimated-amount">
         {formatMoney(estimate.totalMinor, currency)}
       </p>
-      {estimate.travelMinor > 0 && <p className="text-xs text-spa-clay">Includes {formatMoney(estimate.travelMinor, currency)} travel fee</p>}
-      {estimate.kind === 'deposit' && <p className="text-xs text-spa-clay">About {formatMoney(estimate.dueNowMinor, currency)} deposit payable online</p>}
-      <p className="text-xs text-spa-clay">Estimate. The exact amount is confirmed before you pay.</p>
+      {estimate.travelMinor > 0 && <p className="text-xs text-spa-clay-text">Includes {formatMoney(estimate.travelMinor, currency)} travel fee</p>}
+      {estimate.kind === 'deposit' && <p className="text-xs text-spa-clay-text">About {formatMoney(estimate.dueNowMinor, currency)} deposit payable online</p>}
+      <p className="text-xs text-spa-clay-text">Estimate. The exact amount is confirmed before you pay.</p>
     </div>
   );
 }
@@ -50,12 +50,12 @@ export default function BookingSummary({ funnel, currency }: { funnel: BookingFu
     <aside aria-label="Your booking" className="space-y-5 rounded border border-spa-taupe bg-spa-linen p-5">
       <h3 className="font-serif text-lg text-spa-charcoal">Your booking</h3>
       {rows.length === 0 ? (
-        <p className="text-sm text-spa-clay">Choose a treatment to begin.</p>
+        <p className="text-sm text-spa-clay-text">Choose a treatment to begin.</p>
       ) : (
         <dl className="space-y-3 text-sm">
           {rows.map(([label, value]) => (
             <div key={label}>
-              <dt className="text-xs uppercase tracking-widest text-spa-clay">{label}</dt>
+              <dt className="text-xs uppercase tracking-widest text-spa-clay-text">{label}</dt>
               <dd className="text-spa-charcoal">{value}</dd>
             </div>
           ))}
@@ -83,13 +83,13 @@ export function StickySummaryBar({ funnel, currency, hidden = false }: { funnel:
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold text-spa-charcoal">{item.name}</p>
-          <p className="truncate text-xs text-spa-clay">
+          <p className="truncate text-xs text-spa-clay-text">
             {state.hold ? `${formatDateLong(localDateOf(state.hold.startsAt, timeZone))}, ${formatTime(state.hold.startsAt, timeZone)}` : state.date ? formatDateLong(state.date) : `${item.duration} min`}
           </p>
         </div>
         <div className="shrink-0 text-right">
           <p className="font-serif text-base text-spa-charcoal">{amount}</p>
-          <p className="text-[11px] uppercase tracking-widest text-spa-clay">{state.payment ? 'Due now' : 'Estimate'}</p>
+          <p className="text-[11px] uppercase tracking-widest text-spa-clay-text">{state.payment ? 'Due now' : 'Estimate'}</p>
         </div>
       </div>
       {expiresAt && state.hold && (

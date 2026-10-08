@@ -34,7 +34,7 @@ export const ServiceStep = forwardRef<HTMLHeadingElement, { funnel: BookingFunne
         </div>
         {catalog.packages.length > 0 && (
           <>
-            <p className="pt-3 text-xs font-bold uppercase tracking-widest text-spa-clay">Packages</p>
+            <p className="pt-3 text-xs font-bold uppercase tracking-widest text-spa-clay-text">Packages</p>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {catalog.packages.map((p) => (
                 <ChoiceCard
@@ -110,7 +110,7 @@ export const ServiceStep = forwardRef<HTMLHeadingElement, { funnel: BookingFunne
       )}
 
       <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-xs text-spa-clay">{ready ? '' : state.serviceId ? 'Choose your area and enter your address to continue.' : 'Choose a treatment to continue.'}</p>
+        <p className="text-xs text-spa-clay-text">{ready ? '' : state.serviceId ? 'Choose your area and enter your address to continue.' : 'Choose a treatment to continue.'}</p>
         <PrimaryButton onClick={() => funnel.goTo('therapist')} disabled={!ready} className="w-full sm:w-auto">
           Next: therapist
         </PrimaryButton>

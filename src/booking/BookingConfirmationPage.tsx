@@ -144,7 +144,7 @@ export default function BookingConfirmationPage({
         {demo && <DemoPaymentNotice />}
 
         {!outcome && !error && (
-          <p role="status" className="text-center text-sm text-spa-clay">
+          <p role="status" className="text-center text-sm text-spa-clay-text">
             Checking your payment with the payment provider…
           </p>
         )}
@@ -161,21 +161,21 @@ export default function BookingConfirmationPage({
             <p>Thank you. We look forward to welcoming you.</p>
             <dl className="grid grid-cols-1 gap-4 rounded border border-spa-taupe bg-spa-linen p-5 sm:grid-cols-2">
               <div>
-                <dt className="text-xs uppercase tracking-widest text-spa-clay">Date</dt>
+                <dt className="text-xs uppercase tracking-widest text-spa-clay-text">Date</dt>
                 <dd className="font-serif text-lg">{formatDateLong(localDateOf(appointment.startsAt, timeZone))}</dd>
               </div>
               <div>
-                <dt className="text-xs uppercase tracking-widest text-spa-clay">Time (Lagos)</dt>
+                <dt className="text-xs uppercase tracking-widest text-spa-clay-text">Time (Lagos)</dt>
                 <dd className="font-serif text-lg">
                   {formatTime(appointment.startsAt, timeZone)} – {formatTime(appointment.endsAt, timeZone)}
                 </dd>
               </div>
               <div className="sm:col-span-2">
-                <dt className="text-xs uppercase tracking-widest text-spa-clay">Booking reference</dt>
+                <dt className="text-xs uppercase tracking-widest text-spa-clay-text">Booking reference</dt>
                 <dd className="break-all font-mono text-base">{appointment.reference}</dd>
               </div>
             </dl>
-            <p className="text-spa-clay">Please keep your booking reference. To change or cancel, message us on WhatsApp or call us at least 24 hours before your appointment.</p>
+            <p className="text-spa-clay-text">Please keep your booking reference. To change or cancel, message us on WhatsApp or call us at least 24 hours before your appointment.</p>
           </Card>
         )}
 
@@ -218,7 +218,7 @@ export default function BookingConfirmationPage({
                 Start a new booking
               </a>
             )}
-            {pending && <p className="text-xs text-spa-clay">If your reserved time has run out, you will be asked to choose a time again.</p>}
+            {pending && <p className="text-xs text-spa-clay-text">If your reserved time has run out, you will be asked to choose a time again.</p>}
           </Card>
         )}
 
@@ -235,7 +235,7 @@ export default function BookingConfirmationPage({
           </Card>
         )}
 
-        <p className="text-center text-xs text-spa-clay">
+        <p className="text-center text-xs text-spa-clay-text">
           Payment reference: <span className="break-all font-mono">{reference}</span>
         </p>
       </main>

@@ -38,7 +38,7 @@ function StepIndicator({ current, canEnter, onSelect }: { current: FunnelStep; c
                 disabled={!reachable}
                 aria-current={active ? 'step' : undefined}
                 className={`flex min-h-11 w-full flex-col items-center justify-center gap-0.5 px-1 py-2 text-[11px] uppercase tracking-wider sm:text-xs ${focusRing} ${
-                  active ? 'border-b-2 border-b-spa-gold-dark bg-white font-bold text-spa-charcoal' : done ? 'text-spa-charcoal hover:bg-white/60' : 'text-spa-clay'
+                  active ? 'border-b-2 border-b-spa-gold-dark bg-white font-bold text-spa-charcoal' : done ? 'text-spa-charcoal hover:bg-white/60' : 'text-spa-clay-text'
                 }`}
               >
                 <span className="flex items-center gap-1">
@@ -146,7 +146,7 @@ export default function BookingFunnel({ catalog, callbackUrl, preselectServiceId
 
           {state.step !== 'service' && (
             <div className="border-t border-spa-taupe pt-4 text-right">
-              <button type="button" onClick={funnel.cancel} className={`min-h-11 rounded px-2 text-xs text-spa-clay underline hover:text-spa-berry ${focusRing}`}>
+              <button type="button" onClick={funnel.cancel} className={`min-h-11 rounded px-2 text-xs text-spa-clay-text underline hover:text-spa-berry ${focusRing}`}>
                 Start again
               </button>
             </div>

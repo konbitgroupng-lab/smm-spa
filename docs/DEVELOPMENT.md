@@ -521,7 +521,7 @@ Decide or fix these in the booking-funnel and payment phases:
 - **Payments are simulated.** The site runs on the demo gateway. The Paystack adapter has only been tested against a simulated Paystack built from its documentation; follow "Future Paystack integration" before go-live.
 - **Edited details after payment starts.** If a guest goes back and changes their details after payment has started, the booking gets the new name and phone, but the already-open payment keeps the original email.
 - **No favicon.** The site has no `favicon.ico`, so browsers log a 404 (pre-existing).
-- **Public-site colour contrast (found in 5e, pre-existing).** An automated accessibility scan of the booking section and confirmation page found two contrast problems, neither from Phase 5: the original site's gold eyebrow labels (`#f4c430` on cream, 1.5:1; the same style is used across the site) and the Phase 4 funnel's grey helper text on beige panels (`#8a6a5e` on `#f5f1eb`, 4.3:1, just under 4.5:1). Left unchanged pending a decision, because the public site's look was fixed for Phases 4-5.
+- **Public-site colour contrast (found in 5e, pre-existing).** An automated accessibility scan of the booking section and confirmation page found two contrast problems, neither from Phase 5: the original site's gold eyebrow labels (`#f4c430` on cream, 1.5:1; the same style is used across the site) and the Phase 4 funnel's grey helper text on beige panels (`#8a6a5e` on `#f5f1eb`, 4.3:1, just under 4.5:1). The helper text was fixed after 5e: a darker shade of the same colour (`--color-spa-clay-text`, `#785a4f`, at least 4.7:1 on every panel) is used for funnel and confirmation helper text, guarded by `tests/booking/contrast.test.ts`. The gold eyebrow labels are left for the Phase 6 design and accessibility pass.
 - **Refunds are manual.** Payments flagged `needs_refund` must be refunded by the owner in the Paystack dashboard; the resulting Paystack events update the record. Nothing alerts staff to a flagged payment until the Phase 5 dashboard exists.
 - **Several partial refunds.** Each payment stores one refund reference and a running total; a per-refund history table is left for the refund workflow.
 - **Deposit balances.** A deposit confirms the booking; collecting the remainder is not handled online.
@@ -549,6 +549,12 @@ Decide or fix these in the booking-funnel and payment phases:
 - **Booking rules never create conflicts.** Minimum notice, booking window, grid and hold length affect new bookings only.
 - **Overridden reschedules stay listed.** A booking moved with a rule override remains in Conflicts while the rule it overrode applies.
 - **One shift and one break per day in the screens.** The database allows more; the weekly editor shows and saves one of each.
+
+## Carried into Phase 6 planning
+
+- Move the website content and intake tables (FAQs, testimonials, gallery, media, site content, announcements, intake questions and answers) behind audited server-side functions with authorization, RLS and tests; the staff app must not gain direct write access.
+- Site-wide gold eyebrow label contrast (brand and accessibility decision).
+- Still deferred: hosted Supabase verification, real Paystack, deployment configuration (SMTP, `STAFF_APP_URL`, `ALLOWED_ORIGINS`).
 
 ## Phase 5d decisions and limits
 

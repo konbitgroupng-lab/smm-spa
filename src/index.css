@@ -12,6 +12,9 @@
   --color-spa-gold-dark: #7a6218;
   --color-spa-charcoal: #1a1a1a;
   --color-spa-clay: #8a6a5e;
+  /* Helper text in the booking funnel and confirmation page: the clay hue, dark enough for
+     4.5:1 contrast on the white, cream, linen and taupe panels it sits on (WCAG 2.1 AA). */
+  --color-spa-clay-text: #785a4f;
 
   /* Brand flyer palette */
   --color-spa-terracotta: #cb9873;

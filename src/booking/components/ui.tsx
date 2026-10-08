@@ -16,7 +16,7 @@ export const StepHeading = forwardRef<HTMLHeadingElement, { children: ReactNode;
       <h3 ref={ref} tabIndex={-1} className="scroll-mt-32 font-serif text-2xl text-spa-charcoal focus:outline-none">
         {children}
       </h3>
-      {hint && <p className="text-sm text-spa-clay">{hint}</p>}
+      {hint && <p className="text-sm text-spa-clay-text">{hint}</p>}
     </div>
   );
 });
@@ -30,7 +30,7 @@ export function PrimaryButton({ busy, children, className = '', disabled, ...pro
       {...props}
       disabled={disabled || busy}
       aria-busy={busy || undefined}
-      className={`inline-flex min-h-11 items-center justify-center gap-2 rounded bg-spa-charcoal px-6 py-3 text-xs font-bold uppercase tracking-widest text-spa-cream transition-colors hover:bg-spa-gold hover:text-spa-charcoal disabled:cursor-not-allowed disabled:bg-spa-taupe disabled:text-spa-clay ${focusRing} ${className}`}
+      className={`inline-flex min-h-11 items-center justify-center gap-2 rounded bg-spa-charcoal px-6 py-3 text-xs font-bold uppercase tracking-widest text-spa-cream transition-colors hover:bg-spa-gold hover:text-spa-charcoal disabled:cursor-not-allowed disabled:bg-spa-taupe disabled:text-spa-clay-text ${focusRing} ${className}`}
     >
       {busy && <Loader2 className="h-4 w-4 motion-safe:animate-spin" aria-hidden="true" />}
       {children}
@@ -109,7 +109,7 @@ export function ChoiceCard({
       <input type="radio" name={name} value={value} checked={checked} disabled={disabled} onChange={() => onChange(value)} className="sr-only" />
       <span className="min-w-0 space-y-1">
         <span className="block font-serif text-base font-semibold text-spa-charcoal">{title}</span>
-        {detail && <span className="block text-xs text-spa-clay">{detail}</span>}
+        {detail && <span className="block text-xs text-spa-clay-text">{detail}</span>}
       </span>
       {aside && <span className="shrink-0 font-serif text-sm font-semibold text-spa-gold-dark">{aside}</span>}
       {checked && <span className="sr-only">(selected)</span>}

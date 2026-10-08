@@ -22,7 +22,7 @@ export function BookingUnavailable() {
   return (
     <Panel>
       <h3 className="font-serif text-2xl text-spa-charcoal">Online booking is unavailable right now</h3>
-      <p className="mx-auto max-w-md text-sm text-spa-clay">We would still love to see you. Message or call us and we will arrange your appointment.</p>
+      <p className="mx-auto max-w-md text-sm text-spa-clay-text">We would still love to see you. Message or call us and we will arrange your appointment.</p>
       <div className="flex flex-col justify-center gap-3 sm:flex-row">
         <a href={WHATSAPP} target="_blank" rel="noopener noreferrer" className={`inline-flex min-h-11 items-center justify-center gap-2 rounded bg-spa-charcoal px-6 py-3 text-xs font-bold uppercase tracking-widest text-spa-cream hover:bg-spa-gold hover:text-spa-charcoal ${focusRing}`}>
           <MessageCircle className="h-4 w-4" aria-hidden="true" />
@@ -52,7 +52,7 @@ export default function BookingSection({ preselectServiceId, catalogApi, funnelA
   if (catalog.status === 'loading') {
     return (
       <Panel>
-        <p role="status" className="text-sm text-spa-clay">
+        <p role="status" className="text-sm text-spa-clay-text">
           Loading treatments and availability…
         </p>
       </Panel>
