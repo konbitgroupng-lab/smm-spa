@@ -80,7 +80,7 @@ export default function BookingConfirmationPage({
     try {
       const result = await api.verifyPayment(reference);
       setOutcome(result);
-      if (result.status === 'confirmed' || result.status === 'refund_required') forgetPendingPayment(reference);
+      if (result.status === 'confirmed' || result.status === 'cancelled' || result.status === 'refund_required') forgetPendingPayment(reference);
     } catch (err) {
       setError((err as { code?: string })?.code ?? 'unknown');
     } finally {
@@ -176,6 +176,23 @@ export default function BookingConfirmationPage({
               </div>
             </dl>
             <p className="text-spa-clay">Please keep your booking reference. To change or cancel, message us on WhatsApp or call us at least 24 hours before your appointment.</p>
+          </Card>
+        )}
+
+        {outcome?.status === 'cancelled' && (
+          <Card icon={<CircleAlert className="h-7 w-7" aria-hidden="true" />} title="This booking has been cancelled" tone="bad">
+            <p>
+              {appointment
+                ? <>Your booking <span className="break-all font-mono">{appointment.reference}</span> for {formatDateLong(localDateOf(appointment.startsAt, timeZone))} at {formatTime(appointment.startsAt, timeZone)} (Lagos time) was cancelled.</>
+                : 'Your booking was cancelled.'}
+            </p>
+            <p>
+              Any refund due on your payment will be arranged by us. If you have questions, message us on{' '}
+              <a href={WHATSAPP} target="_blank" rel="noopener noreferrer" className={`underline ${focusRing}`}>
+                WhatsApp
+              </a>
+              .
+            </p>
           </Card>
         )}
 

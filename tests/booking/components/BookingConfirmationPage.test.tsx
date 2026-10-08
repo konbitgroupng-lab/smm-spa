@@ -87,6 +87,15 @@ describe('booking confirmation page', () => {
     expect(screen.getByRole('link', { name: /whatsapp/i }).getAttribute('href')).toMatch(/^https:\/\/wa\.me\//);
   });
 
+  it('cancelled (Phase 5e): a booking the business cancelled is never shown as confirmed', async () => {
+    renderPage([{ ...confirmed, status: 'cancelled' }]);
+    expect(await screen.findByRole('heading', { level: 1, name: /this booking has been cancelled/i })).toBeTruthy();
+    expect(screen.getByText('SMM-1A2B3C4D')).toBeTruthy();
+    expect(screen.getByText(/Monday 12 October 2026 at 09:00/)).toBeTruthy();
+    expect(screen.getByText(/refund due on your payment will be arranged by us/i)).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: /confirmed/i })).toBeNull();
+  });
+
   it('shows the demo notice only when the server says the payment was simulated', async () => {
     renderPage([{ ...confirmed, demo: true }]);
     expect(await screen.findByText(/demo payment — no real money will be charged/i)).toBeTruthy();

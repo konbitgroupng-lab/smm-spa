@@ -29,11 +29,12 @@ export interface PaymentStart {
 export interface PaymentOutcome {
   /**
    * confirmed        paid and booked
+   * cancelled        paid and booked, then the booking was cancelled by the business
    * pending          not paid yet (keep waiting or let the guest retry)
    * failed           the payment did not go through
    * refund_required  paid, but the booking could not be made; the business will refund
    */
-  status: 'confirmed' | 'pending' | 'failed' | 'refund_required';
+  status: 'confirmed' | 'cancelled' | 'pending' | 'failed' | 'refund_required';
   reason?: string;
   appointment: { reference: string; startsAt: string; endsAt: string } | null;
   /** True when the payment was simulated. Set by the server. */

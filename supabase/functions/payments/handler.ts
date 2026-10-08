@@ -33,7 +33,7 @@ const ERROR_STATUS: Record<string, number> = {
 function publicOutcome(outcome: any, gateway: PaymentGateway) {
   return {
     demo: gateway.name === 'mock',
-    status: outcome.status as 'confirmed' | 'pending' | 'failed' | 'refund_required',
+    status: outcome.status as 'confirmed' | 'cancelled' | 'pending' | 'failed' | 'refund_required',
     reason: outcome.reason ?? undefined,
     appointment: outcome.appointment
       ? { reference: outcome.appointment.reference, startsAt: outcome.appointment.starts_at, endsAt: outcome.appointment.ends_at }
@@ -127,7 +127,8 @@ async function verify(body: Record<string, unknown>, deps: PaymentsDeps): Promis
   const current = await deps.rpc('get_payment_outcome', { p_provider: deps.gateway.name, p_reference: reference });
   if (current.error) throw new Error(current.error.message);
   if (!current.data) return { status: 404, body: { error: 'payment_not_found' } };
-  if (current.data.status === 'confirmed' || current.data.status === 'refund_required') {
+  // Final outcomes need no further word from the provider.
+  if (['confirmed', 'cancelled', 'refund_required'].includes(current.data.status)) {
     return { status: 200, body: publicOutcome(current.data, deps.gateway) };
   }
 

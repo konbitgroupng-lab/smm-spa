@@ -1,6 +1,6 @@
 # Development guide
 
-SMM is a React 19 + Vite + Tailwind site backed by Supabase (Postgres, Auth, Row Level Security, Storage, Edge Functions). This guide covers Phases 1-4 and Phase 5a-5d (staff security foundation; appointment and customer operations; schedule and catalogue; payments, refunds, staff and audit): what exists, how to run it, and the rules the rest of the build relies on.
+SMM is a React 19 + Vite + Tailwind site backed by Supabase (Postgres, Auth, Row Level Security, Storage, Edge Functions). This guide covers Phases 1-4 and Phase 5 (5a-5e: staff security foundation; appointment and customer operations; schedule and catalogue; payments, refunds, staff and audit; final integration): what exists, how to run it, and the rules the rest of the build relies on.
 
 ## Current state
 
@@ -16,6 +16,7 @@ SMM is a React 19 + Vite + Tailwind site backed by Supabase (Postgres, Auth, Row
 | Appointment and customer operations | Done (Phase 5b): staff home, bookings (list, day by therapist, week), appointment detail and actions, phone/WhatsApp bookings, customers, therapist agenda. See "Appointment operations". |
 | Schedule and catalogue management | Done (Phase 5c): opening hours, therapist weeks, time off, closures, booking rules, conflicts; treatments, packages, therapists and their treatments, in-home areas. See "Schedule and catalogue". |
 | Payments, refunds, staff accounts, settings, activity log | Done (Phase 5d). See "Payments, refunds, staff and audit". |
+| Phase 5 integration and security review | Done (Phase 5e). See "Phase 5e integration" and [PHASE-5-SECURITY-REVIEW.md](PHASE-5-SECURITY-REVIEW.md). |
 | Staff app (`/staff/`) | Sign-in, password links, role-based navigation, own account (5a); every Phase 5 screen above. |
 | CMS, analytics, notifications | Phase 6; see "Deferred to Phases 5 and 6". |
 
@@ -404,6 +405,14 @@ Migration `20261013000100_staff_payments_staff_audit.sql` and Edge Function `sta
 
 **Not in Phase 5:** Paystack itself, matching payments against Paystack's records, refunds through the Paystack API, disputes.
 
+## Phase 5e integration
+
+No new features. One integration defect was fixed: a guest whose paid booking was cancelled by staff was still told "Your booking is confirmed" on the confirmation page. The payment outcome (`private.payment_outcome`, migration `20261014000100_guest_outcome_cancelled.sql`) now reports `cancelled` for a paid booking that has been cancelled; the `payments` function treats it as final, and the confirmation page says the booking was cancelled and that any refund due will be arranged.
+
+Added checks: a security snapshot of what every role can reach, a whole-system test (a guest books and pays through the website's services, staff then reschedule, cancel and record the refund through the staff client), and a mixed real-PostgreSQL stress race. The security review is in [PHASE-5-SECURITY-REVIEW.md](PHASE-5-SECURITY-REVIEW.md).
+
+**Deployment requirements recorded for later (not configured):** `STAFF_APP_URL` for `staff-invite`; the staff app's address in `ALLOWED_ORIGINS`; custom SMTP for invitation emails; Auth redirect URL `/staff/`; minimum password length 10.
+
 ## Booking funnel
 
 The "Book online" section (`#booking`) is the funnel; `src/booking/` holds all of it.
@@ -493,6 +502,9 @@ Not part of the funnel, by decision:
 | `tests/db/staff-payments-concurrency.test.ts` | 5d races on real PostgreSQL: two owners refunding one payment, cash refund against a provider refund event, refund against cancellation, refund against payment replay, two owners changing one account, deactivation during a staff action, owners deactivating each other |
 | `tests/functions/staff-invite.test.ts` | The invitation function: owner only, validation, duplicates, rate limit, CORS, audit |
 | `tests/staff/payments-staff-screens.test.tsx` | Payments, refund recording, staff accounts, settings and activity log screens |
+| `tests/db/security-snapshot.test.ts` | 5e: the exact functions each role can call, server-only functions, no default execute grants, every staff function checks the role itself, RLS on every table, the only directly writable tables, no secret columns |
+| `tests/db/phase5-mixed-concurrency.test.ts` | 5e: guest reservations, phone booking, reschedule, time off, payment completion, cancellation and refund racing together on real PostgreSQL, with system-wide invariants |
+| `tests/e2e/guest-to-staff.test.ts` | 5e: a website booking handled by staff end to end, and what the guest is told throughout |
 | `tests/staff/client-separation.test.ts` | The website's client keeps no session and ignores login links; separate storage keys; no staff imports or secrets in the website |
 
 The local test backend (`tests/support/local-backend.ts`) serves the real Edge Function handlers and the database's REST reads and RPC calls over HTTP, so the site's own code can be tested end to end without Docker or a Supabase account. Given a `staffPassword`, it also stands in for Supabase Auth (password sign-in with unsigned test tokens) and runs RPC calls as the signed-in user.
@@ -509,6 +521,7 @@ Decide or fix these in the booking-funnel and payment phases:
 - **Payments are simulated.** The site runs on the demo gateway. The Paystack adapter has only been tested against a simulated Paystack built from its documentation; follow "Future Paystack integration" before go-live.
 - **Edited details after payment starts.** If a guest goes back and changes their details after payment has started, the booking gets the new name and phone, but the already-open payment keeps the original email.
 - **No favicon.** The site has no `favicon.ico`, so browsers log a 404 (pre-existing).
+- **Public-site colour contrast (found in 5e, pre-existing).** An automated accessibility scan of the booking section and confirmation page found two contrast problems, neither from Phase 5: the original site's gold eyebrow labels (`#f4c430` on cream, 1.5:1; the same style is used across the site) and the Phase 4 funnel's grey helper text on beige panels (`#8a6a5e` on `#f5f1eb`, 4.3:1, just under 4.5:1). Left unchanged pending a decision, because the public site's look was fixed for Phases 4-5.
 - **Refunds are manual.** Payments flagged `needs_refund` must be refunded by the owner in the Paystack dashboard; the resulting Paystack events update the record. Nothing alerts staff to a flagged payment until the Phase 5 dashboard exists.
 - **Several partial refunds.** Each payment stores one refund reference and a running total; a per-refund history table is left for the refund workflow.
 - **Deposit balances.** A deposit confirms the booking; collecting the remainder is not handled online.
