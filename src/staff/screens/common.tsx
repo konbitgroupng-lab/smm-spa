@@ -1,6 +1,6 @@
 import { formatDateShort, formatTime, localDateOf } from '../../booking/dates';
 import { formatMoney } from '../../lib/money';
-import { ACTION_LABEL, FIELD_LABEL, PAYMENT_LABEL, SOURCE_LABEL, STATUS_LABEL, STATUS_TONE } from '../lib/labels';
+import { ACTION_LABEL, FIELD_LABEL, PAYMENT_LABEL, PAYMENT_STATUS_LABEL, REFUND_REASON_LABEL, SOURCE_LABEL, STATUS_LABEL, STATUS_TONE } from '../lib/labels';
 import type { AppointmentRow, HistoryEntry } from '../lib/ops';
 import { href } from '../router';
 import { Badge } from '../ui';
@@ -18,7 +18,7 @@ export function AppointmentCard({ appt, showTherapist = true, showDate = false }
   return (
     <a
       href={href('bookings', [appt.id])}
-      className={`block rounded-lg border border-spa-taupe bg-white p-3 hover:border-spa-charcoal focus:outline-none focus:ring-2 focus:ring-spa-gold ${faded ? 'opacity-70' : ''}`}
+      className={`block rounded-lg border border-spa-taupe p-3 hover:border-spa-charcoal focus:outline-none focus:ring-2 focus:ring-spa-gold bg-white ${faded ? 'border-dashed' : ''}`}
     >
       <span className="flex flex-wrap items-baseline justify-between gap-x-2">
         <span className="font-medium">
@@ -44,9 +44,20 @@ export function AppointmentCard({ appt, showTherapist = true, showDate = false }
 function describeValue(field: string, value: unknown): string {
   if (value === null || value === undefined) return '—';
   if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(value)) return dateTime(value);
-  if (field === 'status') return STATUS_LABEL[value as keyof typeof STATUS_LABEL] ?? String(value);
+  if (field === 'status') return STATUS_LABEL[value as keyof typeof STATUS_LABEL] ?? PAYMENT_STATUS_LABEL[String(value)] ?? String(value);
+  if (field === 'needs_refund_reason') return REFUND_REASON_LABEL[String(value)] ?? String(value);
+  if (LINK_FIELDS.includes(field)) return 'set';
+  if (field === 'refund_status' || field === 'settlement' || field === 'role') return String(value).replace(/_/g, ' ');
+  if (field.endsWith('_minor') && Number.isFinite(Number(value))) return formatMoney(Number(value));
+  if (typeof value === 'boolean') return value ? 'yes' : 'no';
   return String(value);
 }
+
+/** Derived or technical fields left out of the history (the meaningful change is shown beside them). */
+const HIDDEN_FIELDS = ['ends_at', 'blocked_until', 'cancelled_at', 'cancelled_by', 'refundable_minor', 'verified_at', 'paid_currency',
+  'provider_transaction_id', 'refund_requested_at', 'refund_processed_at', 'needs_refund_detail', 'hold_id', 'id'];
+/** Fields that hold a link to another record: shown as set or removed, not as an id. */
+const LINK_FIELDS = ['appointment_id', 'profile_id', 'customer_id', 'service_id', 'dispatch_zone_id', 'created_by', 'photo_media_id'];
 
 /** The audit trail of a record, newest last. Personal fields show only that they changed. */
 export function HistoryList({ entries, therapistNames = {} }: { entries: HistoryEntry[]; therapistNames?: Record<string, string> }) {
@@ -67,7 +78,7 @@ export function HistoryList({ entries, therapistNames = {} }: { entries: History
           {Array.isArray(e.context.refund_flagged_payments) && <p>Online payment flagged for refund</p>}
           <ul className="text-spa-clay">
             {Object.entries(e.changes)
-              .filter(([field]) => !['ends_at', 'blocked_until', 'cancelled_at', 'cancelled_by'].includes(field))
+              .filter(([field]) => !HIDDEN_FIELDS.includes(field))
               .map(([field, change]) => (
                 <li key={field}>
                   {FIELD_LABEL[field] ?? field.replace(/_/g, ' ')}:{' '}

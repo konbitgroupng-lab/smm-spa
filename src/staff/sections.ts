@@ -22,10 +22,10 @@ export const SECTIONS: Section[] = [
   { id: 'customers', label: 'Customers', roles: MANAGERS, built: true },
   { id: 'schedules', label: 'Schedules', roles: MANAGERS, built: true },
   { id: 'catalogue', label: 'Services & therapists', roles: MANAGERS, built: true },
-  { id: 'payments', label: 'Payments', roles: MANAGERS, built: false },
-  { id: 'staff', label: 'Staff accounts', roles: ['owner'], built: false },
-  { id: 'settings', label: 'Settings', roles: MANAGERS, built: false },
-  { id: 'activity', label: 'Activity log', roles: MANAGERS, built: false },
+  { id: 'payments', label: 'Payments', roles: MANAGERS, built: true },
+  { id: 'staff', label: 'Staff accounts', roles: ['owner'], built: true },
+  { id: 'settings', label: 'Settings', roles: MANAGERS, built: true },
+  { id: 'activity', label: 'Activity log', roles: MANAGERS, built: true },
   { id: 'account', label: 'My account', roles: ALL, built: true },
 ];
 

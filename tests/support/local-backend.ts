@@ -6,6 +6,7 @@ import { handleDemoCheckoutRequest } from '../../supabase/functions/demo-checkou
 import { MockPaymentGateway } from '../../supabase/functions/_shared/payments/mock';
 import { handlePaymentsRequest } from '../../supabase/functions/payments/handler';
 import { handleWebhookRequest } from '../../supabase/functions/paystack-webhook/handler';
+import { handleInviteRequest } from '../../supabase/functions/staff-invite/handler';
 import { asRole } from '../db/harness';
 import { pgliteRpc } from './rpc';
 
@@ -15,7 +16,8 @@ import { pgliteRpc } from './rpc';
 //   POST /rest/v1/rpc/<fn>      database functions, run as the guest role (anon),
 //                               or as the signed-in user when a token from /auth/v1 is sent
 //   /auth/v1/...                a minimal stand-in for Supabase Auth (password sign-in,
-//                               sign-out, password change), when `staffPassword` is given
+//                               sign-out, password change), when `staffPassword` is given;
+//                               its "invitation" (staff-invite) creates the Auth user directly
 // Only what the booking, payment and staff services use is implemented.
 // Test-only: its tokens are unsigned and trusted as-is.
 
@@ -31,6 +33,22 @@ function tokenClaims(authorization: string | undefined): { sub: string; role: st
     return claims.role === 'authenticated' && typeof claims.sub === 'string' ? claims : null;
   } catch {
     return null;
+  }
+}
+
+/** A public database function called as the request's user, answered as PostgREST would. */
+async function callAs(db: PGlite, authorization: string | undefined, fn: string, args: Record<string, unknown>) {
+  if (!/^[a-z_]+$/.test(fn)) return { data: null, error: { message: 'invalid function' } };
+  const names = Object.keys(args).filter((n) => /^[a-z_]+$/.test(n));
+  try {
+    const result = await asRequester(db, authorization, () =>
+      db.query(`select * from public.${fn}(${names.map((n, i) => ` => $${i + 1}`).join(', ')})`, names.map((n) => (args as any)[n])),
+    );
+    const rows = result.rows as any[];
+    const scalar = result.fields.length === 1 && result.fields[0].name === fn;
+    return { data: scalar ? rows[0]?.[fn] : rows[0], error: null };
+  } catch (err: any) {
+    return { data: null, error: { code: err.code, message: err.message, details: err.detail ?? null } };
   }
 }
 
@@ -64,6 +82,19 @@ export async function startLocalBackend(
         ...common,
         gateway,
         deliverWebhook: async ({ body, headers }) => (await functions['paystack-webhook'](new Request('http://local/webhook', { method: 'POST', headers, body }))).status,
+      }),
+    'staff-invite': (req) =>
+      handleInviteRequest(req, {
+        rpc,
+        allowedOrigins: [site],
+        rpcAsCaller: (token, fn, args) => callAs(db, `Bearer ${token}`, fn, args),
+        invite: async (email, fullName) => {
+          const existing = await db.query(`select 1 from auth.users where lower(email) = lower($1)`, [email]);
+          if (existing.rows.length) return { error: 'already_registered' as const };
+          const { rows } = await db.query<{ id: string }>(`insert into auth.users (email, raw_user_meta_data) values ($1, $2) returning id`,
+            [email, JSON.stringify({ full_name: fullName })]);
+          return { userId: rows[0].id };
+        },
       }),
   };
 

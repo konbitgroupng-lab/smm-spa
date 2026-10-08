@@ -121,6 +121,13 @@ const MESSAGES: Record<string, string> = {
   invalid_zone: 'Check the area details (name, short name and fee).',
   slug_in_use: 'Another treatment already uses this web address.',
   key_in_use: 'Another area already uses this short name.',
+  // Payments, refunds and staff (Phase 5d)
+  exceeds_refundable: 'That is more than is left to refund on this payment.',
+  not_refundable: 'Only a payment that was received can be refunded.',
+  invalid_refund: 'Check the refund details (reference up to 120 characters, note up to 500).',
+  already_registered: 'This email already has an account.',
+  invalid_invitation: 'Check the email address and give a name.',
+  invite_failed: 'The invitation could not be sent. Check the email settings, then try again.',
 };
 
 /** Why a time is outside the booking rules (schedule_rule / slot_unavailable details). */

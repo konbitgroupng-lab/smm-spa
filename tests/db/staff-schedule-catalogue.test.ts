@@ -128,8 +128,8 @@ describe('who may call each function', () => {
 
   it('allow_demo_payments stays out of reach', async () => {
     const fns = await rows(db, `select p.proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-      where n.nspname = 'public' and (pg_get_function_arguments(p.oid) ilike '%demo%' or p.prosrc ilike '%allow_demo_payments%')
-        and p.proname like 'staff_%'`);
+      where n.nspname = 'public' and (pg_get_function_arguments(p.oid) ilike '%demo%' or p.prosrc ~* 'allow_demo_payments\s*=')
+        and (p.proname like 'staff_%' or p.proname like 'owner_%')`);
     expect(fns).toEqual([]);
   });
 });

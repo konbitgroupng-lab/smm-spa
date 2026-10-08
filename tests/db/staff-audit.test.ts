@@ -25,8 +25,8 @@ describe('audit coverage', () => {
       select c.relname from pg_trigger t join pg_class c on c.oid = t.tgrelid
       where t.tgname = 'audit_row_change' order by 1`);
     expect(audited.map((r) => r.relname)).toEqual([
-      'appointments', 'blackout_dates', 'business_hours', 'business_settings', 'customers', 'dispatch_zones', 'profiles',
-      'service_package_items', 'services', 'therapist_breaks', 'therapist_schedules', 'therapist_services',
+      'appointments', 'blackout_dates', 'business_hours', 'business_settings', 'customers', 'dispatch_zones', 'payments', 'profiles',
+      'refund_records', 'service_package_items', 'services', 'therapist_breaks', 'therapist_schedules', 'therapist_services',
       'therapist_time_off', 'therapists',
     ]);
   });

@@ -62,7 +62,7 @@ describe('database connection and schema', () => {
       [
         'announcements', 'appointment_intake_answers', 'appointments', 'blackout_dates', 'booking_holds',
         'business_hours', 'business_settings', 'customers', 'dispatch_zones', 'faqs', 'gallery_items',
-        'intake_questions', 'media_assets', 'payment_events', 'payments', 'profiles', 'service_package_items',
+        'intake_questions', 'media_assets', 'payment_events', 'payments', 'profiles', 'refund_records', 'service_package_items',
         'services', 'site_content', 'testimonials', 'therapist_breaks', 'therapist_schedules',
         'therapist_services', 'therapist_time_off', 'therapists',
         'audit_log', // Phase 5a

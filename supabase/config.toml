@@ -432,3 +432,8 @@ verify_jwt = false
 # Never deploy to production.
 [functions.demo-checkout]
 verify_jwt = false
+
+# Owner-only staff invitations. Requires a signed-in user's JWT; the function
+# then asks the database, as that user, whether they are an active owner.
+[functions.staff-invite]
+verify_jwt = true

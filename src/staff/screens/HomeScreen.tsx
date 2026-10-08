@@ -34,6 +34,7 @@ export function HomeScreen({ ops }: { ops: StaffOps }) {
             ['Online payments flagged for refund', d.refundsFlagged, 'Refunds are handled by the owner; nothing is refunded automatically.'],
             ['Bookings in the next 7 days', d.next7Days],
             ['Bookings in conflict with the schedule', d.scheduleConflicts, 'Still booked; see Schedules › Conflicts.'],
+            ['Payments waiting on the provider', d.paymentsWaiting, 'Reported pending more than 10 minutes ago; see Payments.'],
           ];
           return (
             <dl className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-8">

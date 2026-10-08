@@ -1,7 +1,7 @@
 import { vi } from 'vitest';
 import type {
   AgendaItem, AppointmentDetail, AppointmentRow, BookingOptions, Catalogue, ConflictRow, CustomerDetail, CustomerRow, Dashboard,
-  ScheduleOverview, StaffOps,
+  PaymentDetail, PaymentRow, ScheduleOverview, Settings, StaffList, StaffOps, AuditEntry,
 } from '../../src/staff/lib/ops';
 
 // A scripted StaffOps for screen tests. Each method is a vi.fn returning the
@@ -55,7 +55,7 @@ export const OPTIONS: BookingOptions = {
 
 export const DASHBOARD: Dashboard = {
   today: '2026-10-08', todayTotal: 5, todayRemaining: 3, todayCompleted: 1, todayNoShow: 1, todayToCollect: 2,
-  awaitingOutcome: 1, refundsFlagged: 2, next7Days: 12, scheduleConflicts: 1,
+  awaitingOutcome: 1, refundsFlagged: 2, next7Days: 12, scheduleConflicts: 1, paymentsWaiting: 0,
 };
 
 export function agendaItem(overrides: Partial<AgendaItem> = {}): AgendaItem {
@@ -132,6 +132,55 @@ export const CONFLICTS: ConflictRow[] = [{
 }];
 
 const NO_CONFLICTS = { appointments: [], reservations: 0 };
+export function paymentRow(overrides: Partial<PaymentRow> = {}): PaymentRow {
+  return {
+    id: 'pay-1', provider: 'mock', reference: 'SMMP-ABC123', kind: 'full', status: 'succeeded', amountMinor: 4000000, paidMinor: 4000000,
+    refundedMinor: 0, refundableMinor: 4000000, currency: 'NGN', createdAt: '2026-10-08T09:00:00Z', paidAt: '2026-10-08T09:02:00Z',
+    needsRefund: true, needsRefundReason: 'appointment_cancelled', needsRefundDetail: null, refundStatus: 'none', isDemo: true, isTest: true,
+    appointmentId: 'appt-1', appointmentReference: 'SMM-AAAA1111', startsAt: '2026-10-12T09:00:00Z', serviceName: 'Swedish Massage',
+    guestName: 'Refund Guest', updatedAt: V1, ...overrides,
+  };
+}
+
+export function paymentDetail(overrides: Partial<PaymentDetail['payment']> = {}): PaymentDetail {
+  return {
+    payment: { ...paymentRow(), bookingTotalMinor: 4000000, verifiedAt: '2026-10-08T09:02:00Z', channel: 'card', failureReason: null,
+      refundReference: null, refundRequestedAt: null, refundProcessedAt: null, refundError: null, ...overrides },
+    booking: { appointmentId: 'appt-1', reference: 'SMM-AAAA1111', status: 'cancelled', startsAt: '2026-10-12T09:00:00Z', serviceName: 'Swedish Massage', therapistName: 'Senior Massage Therapist' },
+    reservation: null,
+    guest: { customerId: 'c-1', fullName: 'Ada Master', email: 'ada@example.com', phone: '+2348030000009', contactName: 'Refund Guest' },
+    refunds: [],
+    events: [{ eventType: 'charge.success', receivedAt: '2026-10-08T09:02:00Z', processedAt: '2026-10-08T09:02:01Z', processingError: null }],
+    history: [{ occurredAt: '2026-10-08T09:02:00Z', action: 'update', actorKind: 'system', actorName: null, actorRole: null,
+      changes: { status: { old: 'pending', new: 'succeeded' }, paid_minor: { old: null, new: 4000000 } }, reason: null, context: {} }],
+  };
+}
+
+export const SETTINGS: Settings = {
+  businessName: 'SMM', timezone: 'Africa/Lagos', currency: 'NGN', onlinePaymentEnabled: true, paymentMode: 'full', depositPercent: 50,
+  allowDemoPayments: true, updatedAt: V1,
+};
+
+export const STAFF_LIST: StaffList = {
+  staff: [
+    { id: 'owner-1', email: 'owner@example.com', fullName: 'Olu Owner', phone: null, role: 'owner', isActive: true, createdAt: '2026-10-01T09:00:00Z', updatedAt: V1, therapist: null },
+    { id: 'staff-2', email: 'new.person@example.com', fullName: 'New Person', phone: null, role: 'therapist', isActive: false, createdAt: '2026-10-08T09:00:00Z', updatedAt: 'v-staff-2', therapist: null },
+    { id: 'staff-3', email: 'tolu@example.com', fullName: 'Tolu Therapist', phone: null, role: 'therapist', isActive: true, createdAt: '2026-10-02T09:00:00Z', updatedAt: 'v-staff-3', therapist: { id: 't-1', name: 'Senior Massage Therapist' } },
+  ],
+  therapists: [
+    { id: 't-1', name: 'Senior Massage Therapist', profileId: 'staff-3', isActive: true, updatedAt: 'v-t1' },
+    { id: 't-2', name: 'Lead Spa Therapist', profileId: null, isActive: true, updatedAt: 'v-t2' },
+  ],
+};
+
+export function auditEntries(count = 3, startId = 100): AuditEntry[] {
+  return Array.from({ length: count }, (_, i) => ({
+    id: startId - i, entityType: i % 2 ? 'payments' : 'appointments', entityId: i % 2 ? 'pay-1' : 'appt-1',
+    occurredAt: '2026-10-08T09:00:00Z', action: i % 2 ? 'payment.refund_recorded' : 'appointment.cancelled', actorKind: 'staff' as const,
+    actorName: 'Olu Owner', actorRole: 'owner', changes: i % 2 ? { refunded_minor: { old: 0, new: 4000000 } } : { contact_phone: { changed: true } },
+    reason: 'Guest called', context: {},
+  }));
+}
 export function fakeOps(): { [K in keyof StaffOps]: ReturnType<typeof vi.fn> } & StaffOps {
   return {
     dashboard: vi.fn(async () => DASHBOARD),
@@ -168,5 +217,17 @@ export function fakeOps(): { [K in keyof StaffOps]: ReturnType<typeof vi.fn> } &
     saveTherapist: vi.fn(async () => ({ id: 't-new', conflicts: NO_CONFLICTS })),
     setTherapistServices: vi.fn(async () => NO_CONFLICTS),
     saveZone: vi.fn(async () => ({ id: 'z-new', conflicts: NO_CONFLICTS })),
+    payments: vi.fn(async () => ({ rows: [paymentRow()], total: 1 })),
+    paymentDetail: vi.fn(async () => paymentDetail()),
+    recordRefund: vi.fn(async () => {}),
+    auditLog: vi.fn(async () => auditEntries()),
+    settings: vi.fn(async () => SETTINGS),
+    updateBusinessName: vi.fn(async () => {}),
+    updatePaymentSettings: vi.fn(async () => {}),
+    staffList: vi.fn(async () => STAFF_LIST),
+    setStaffRole: vi.fn(async () => {}),
+    setStaffActive: vi.fn(async () => {}),
+    linkTherapist: vi.fn(async () => {}),
+    inviteStaff: vi.fn(async () => ({ profileId: 'staff-new' })),
   } as any;
 }

@@ -1,6 +1,6 @@
 # Development guide
 
-SMM is a React 19 + Vite + Tailwind site backed by Supabase (Postgres, Auth, Row Level Security, Storage, Edge Functions). This guide covers Phases 1-4 and Phase 5a-5c (staff security foundation; appointment and customer operations; schedule and catalogue): what exists, how to run it, and the rules the rest of the build relies on.
+SMM is a React 19 + Vite + Tailwind site backed by Supabase (Postgres, Auth, Row Level Security, Storage, Edge Functions). This guide covers Phases 1-4 and Phase 5a-5d (staff security foundation; appointment and customer operations; schedule and catalogue; payments, refunds, staff and audit): what exists, how to run it, and the rules the rest of the build relies on.
 
 ## Current state
 
@@ -15,7 +15,8 @@ SMM is a React 19 + Vite + Tailwind site backed by Supabase (Postgres, Auth, Row
 | Staff security foundation: role hardening, audit log, staff functions, two-factor readiness | Done (Phase 5a); see "Authentication and authorization". |
 | Appointment and customer operations | Done (Phase 5b): staff home, bookings (list, day by therapist, week), appointment detail and actions, phone/WhatsApp bookings, customers, therapist agenda. See "Appointment operations". |
 | Schedule and catalogue management | Done (Phase 5c): opening hours, therapist weeks, time off, closures, booking rules, conflicts; treatments, packages, therapists and their treatments, in-home areas. See "Schedule and catalogue". |
-| Staff app (`/staff/`) | Sign-in, password links, role-based navigation, own account (5a); the 5b and 5c screens above. Payments, staff accounts, settings and activity log arrive in 5d. |
+| Payments, refunds, staff accounts, settings, activity log | Done (Phase 5d). See "Payments, refunds, staff and audit". |
+| Staff app (`/staff/`) | Sign-in, password links, role-based navigation, own account (5a); every Phase 5 screen above. |
 | CMS, analytics, notifications | Phase 6; see "Deferred to Phases 5 and 6". |
 
 ## Quick start
@@ -264,7 +265,7 @@ No domain code changes: the switch is configuration plus one end-to-end test. Us
 | Signed in, no staff access (new or deactivated account) | Read their own profile; `staff_whoami()` reports why there is no access. Nothing else. |
 | Therapist | Their own schedule, breaks and time off; their own appointments **only** through `therapist_agenda()` (booking contact name and phone, address, guest notes, booking notes, source, paid / deposit paid / to collect; no email, customer master record, staff notes, amounts or payment details; since 5b no direct read of the appointments table); mark their own started appointments completed or no-show; intake answers for those appointments (unused until Phase 6); blackout dates; their own name and phone. No direct writes. |
 | Admin | Read appointments, customers, holds, payments, staff profiles and the audit log. All appointment and customer actions through the 5b functions (create phone/WhatsApp bookings, reschedule with rule override, cancel, outcomes and corrections, booking details, settlement, customer records). Schedules and the catalogue through the 5c functions (versioned, audited, conflict-checked); booking rules through `staff_update_booking_rules()`. Content and media (Phase 6). |
-| Owner | Everything an admin can, plus staff roles and activation, linking therapist records to accounts, and payment settings. |
+| Owner | Everything an admin can, plus inviting staff, staff roles and activation, linking therapist records to accounts, payment settings, and recording refunds made outside the system. |
 | `service_role` (Edge Functions) | The only writer of `booking_holds`, `payments` and `payment_events`, so payment figures cannot be edited from the staff app. |
 
 Nobody, from the app, can: write appointments, customers, profiles, business settings, opening hours, shifts, breaks, time off, closures, services, packages, therapists, therapist treatments or in-home areas directly (only through the functions below or the server); attach a provider payment to a phone or WhatsApp booking (a trigger refuses it, whoever asks); delete customers, services, therapists or dispatch zones (they are deactivated, decision H); change which account a therapist record belongs to except through `owner_link_therapist()`; change `allow_demo_payments` (no function exposes it; it is changed only in the SQL editor); edit or delete the audit log.
@@ -382,6 +383,27 @@ Migration `20261012000100_staff_schedule_catalogue.sql`.
 
 Audit actions: `schedule.hours_changed`, `schedule.therapist_week_changed`, `schedule.time_off_added` / `_removed`, `schedule.blackout_added` / `_removed`, `schedule.conflicts_accepted`, `catalogue.service_created` / `_updated`, `catalogue.package_items_changed`, `catalogue.therapist_created` / `_updated`, `catalogue.therapist_services_changed`, `catalogue.zone_created` / `_updated`. Time-off notes are recorded only as changed (they may concern health).
 
+## Payments, refunds, staff and audit (Phase 5d)
+
+Migration `20261013000100_staff_payments_staff_audit.sql` and Edge Function `staff-invite`.
+
+**Payments are read-only for staff.** Owner and admin see a payments list (filters: refund needed, all, paid, in progress, failed, abandoned, refunded), each payment's booking or reservation, guest, refund records, provider messages received (type and timing only, never their content) and history. Payments are now audited like other tables, so the history shows every status and refund change made by the server. The checkout address is never shown and is recorded in the log only as changed.
+
+**Refunds are recorded, never sent (Decision D).** Only the owner records a refund made outside the system (`owner_record_refund`): amount, method, optional reference and note, and a reason, against the payment's current version.
+
+- **Bank transfer or cash:** the payment's refunded amount and status change in the same transaction, capped at what was received; the refund flag clears when nothing is left to refund.
+- **Via the provider's dashboard:** recorded as requested only (refund status `pending`); amounts change when the provider's own refund event arrives (`record_refund_event`), so nothing is counted twice.
+
+`refund_records` is append-only for everyone, including the server and the table owner. Notes are audited only as changed. Bookings are never changed by a refund record.
+
+**Staff accounts (owner only).** The staff list shows each account's email, role, access and therapist link. Invitations go through the `staff-invite` Edge Function: it asks the database, with the caller's own token, whether they are an active owner (`staff_whoami`), limits each owner to 20 invitations an hour, sends Supabase Auth's own invitation email (the link opens `/staff/` to choose a password), and records `staff.invited` as the owner (no email in the log). The new account has no access until the owner gives it a role and activates it. Role, access and therapist link use the 5a functions, each with a reason and the record's version; the last active owner stays protected.
+
+**Settings.** Owner and admin can rename the business; payment settings (online payment on or off, full or deposit, deposit %) are owner-only. `allow_demo_payments` is shown read-only; no function can change it. Provider keys never appear in the staff app.
+
+**Activity log.** Owner and admin read the audit log by area (bookings, customers, payments and refunds, schedules, catalogue, staff accounts), newest first, with links to records. Entries cannot be changed or deleted by anyone; personal fields show only that they changed.
+
+**Not in Phase 5:** Paystack itself, matching payments against Paystack's records, refunds through the Paystack API, disputes.
+
 ## Booking funnel
 
 The "Book online" section (`#booking`) is the funnel; `src/booking/` holds all of it.
@@ -467,6 +489,10 @@ Not part of the funnel, by decision:
 | `tests/db/staff-schedule-catalogue.test.ts` | 5c: every function against every role; no direct writes; conflicts for closed days, shifts, time off, closures, deactivations, removed treatments and areas; confirmation and its audit; booked prices, fees and lengths unchanged; package and version checks |
 | `tests/db/staff-schedule-concurrency.test.ts` | 5c races on real PostgreSQL: time off against guest holds, payments and reschedules; closures, shift changes, deactivations against staff bookings; duration change against a payment; two week edits from one version |
 | `tests/staff/schedule-catalogue-screens.test.tsx` | The Schedules and Services & therapists screens, including the confirm-with-reason flow |
+| `tests/db/staff-payments-staff.test.ts` | 5d: every function against every role; no direct writes to payments, events, refund records, profiles or settings; payment visibility (no checkout address or event payloads); refund recording by method, caps and refusals; append-only refund records; staff list, invitation record, activation and deactivation, last owner; settings; audit viewer |
+| `tests/db/staff-payments-concurrency.test.ts` | 5d races on real PostgreSQL: two owners refunding one payment, cash refund against a provider refund event, refund against cancellation, refund against payment replay, two owners changing one account, deactivation during a staff action, owners deactivating each other |
+| `tests/functions/staff-invite.test.ts` | The invitation function: owner only, validation, duplicates, rate limit, CORS, audit |
+| `tests/staff/payments-staff-screens.test.tsx` | Payments, refund recording, staff accounts, settings and activity log screens |
 | `tests/staff/client-separation.test.ts` | The website's client keeps no session and ignores login links; separate storage keys; no staff imports or secrets in the website |
 
 The local test backend (`tests/support/local-backend.ts`) serves the real Edge Function handlers and the database's REST reads and RPC calls over HTTP, so the site's own code can be tested end to end without Docker or a Supabase account. Given a `staffPassword`, it also stands in for Supabase Auth (password sign-in with unsigned test tokens) and runs RPC calls as the signed-in user.
@@ -511,6 +537,13 @@ Decide or fix these in the booking-funnel and payment phases:
 - **Overridden reschedules stay listed.** A booking moved with a rule override remains in Conflicts while the rule it overrode applies.
 - **One shift and one break per day in the screens.** The database allows more; the weekly editor shows and saves one of each.
 
+## Phase 5d decisions and limits
+
+- **Provider-dashboard refunds wait for the provider.** With the demo provider there are no refund events, so such records stay "requested"; record demo refunds as bank transfer or cash.
+- **No tamper-evident chain on the audit log.** Entries are append-only for every role, but not hash-chained: chaining would make every audited write (including guest bookings and payments) wait on one lock.
+- **Invitations cannot be re-sent from the app** once an account exists; the owner can reset the password from the Supabase dashboard, or the person can use "Forgot your password".
+- **Moving a therapist link is two steps** (unlink, then link), each audited.
+
 ## Going to a hosted Supabase project
 
 1. Create the project, then `npx supabase link --project-ref <ref>` and `npx supabase db push`. Do **not** run `seed.sql` there.
@@ -522,6 +555,6 @@ Decide or fix these in the booking-funnel and payment phases:
    where id = (select id from auth.users where email = 'owner@their-domain');
    ```
 
-4. Deploy the functions and their secrets: `npx supabase functions deploy booking payments paystack-webhook --use-api`, then `npx supabase secrets set ALLOWED_ORIGINS=https://<site> RATE_LIMIT_SALT=<random> PAYMENT_PROVIDER=paystack PAYSTACK_SECRET_KEY=sk_test_...`. Confirm the `booking-maintenance` job exists under Integrations > Cron. Payment setup is covered step by step in "Future Paystack integration".
+4. Deploy the functions and their secrets: `npx supabase functions deploy booking payments paystack-webhook staff-invite --use-api`, then `npx supabase secrets set ALLOWED_ORIGINS=https://<site> RATE_LIMIT_SALT=<random> PAYMENT_PROVIDER=paystack PAYSTACK_SECRET_KEY=sk_test_...`. Confirm the `booking-maintenance` job exists under Integrations > Cron. For `staff-invite`, also set `STAFF_APP_URL=https://<site>/staff/` and add the staff app's origin to `ALLOWED_ORIGINS`; configure custom SMTP so invitation emails are delivered. Payment setup is covered step by step in "Future Paystack integration".
 5. Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in Vercel. The service-role key is not needed by the site.
 6. Regenerate types once the project exists: `npx supabase gen types typescript --linked > src/lib/database.types.ts`.

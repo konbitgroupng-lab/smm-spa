@@ -107,7 +107,7 @@ export function Notice({ children }: { children: ReactNode }) {
 export function PageTitle({ children, actions }: { children: ReactNode; actions?: ReactNode }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
-      <h1 tabIndex={-1} className="font-serif text-2xl focus:outline-none">{children}</h1>
+      <h1 tabIndex={-1} className="font-serif text-2xl focus:outline-none min-w-0 [overflow-wrap:anywhere]">{children}</h1>
       {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
     </div>
   );

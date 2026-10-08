@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { dbError } from './backend';
+import { dbError, StaffError } from './backend';
 
 // Appointment and customer operations for the staff app. Every call is a
 // database function that checks the caller's role and the record's version;
@@ -135,6 +135,7 @@ export interface Dashboard {
   refundsFlagged: number;
   next7Days: number;
   scheduleConflicts: number;
+  paymentsWaiting: number;
 }
 
 export interface BookingOptions {
@@ -378,6 +379,85 @@ function mapSummary(s: any): ConflictSummary {
   };
 }
 
+// --- Payments, refunds, staff, settings, audit (Phase 5d) ------------------
+
+export type PaymentFilter = 'all' | 'succeeded' | 'pending' | 'failed' | 'abandoned' | 'refund_due' | 'refunded';
+export type RefundMethod = 'provider_dashboard' | 'bank_transfer' | 'cash';
+
+export interface PaymentRow {
+  id: string;
+  provider: string;
+  reference: string;
+  kind: 'full' | 'deposit';
+  status: string;
+  amountMinor: number;
+  paidMinor: number | null;
+  refundedMinor: number;
+  refundableMinor: number;
+  currency: string;
+  createdAt: string;
+  paidAt: string | null;
+  needsRefund: boolean;
+  needsRefundReason: string | null;
+  needsRefundDetail: string | null;
+  refundStatus: string;
+  isDemo: boolean;
+  isTest: boolean;
+  appointmentId: string | null;
+  appointmentReference: string | null;
+  startsAt: string | null;
+  serviceName: string | null;
+  guestName: string | null;
+  updatedAt: string;
+}
+
+export interface PaymentDetail {
+  payment: PaymentRow & {
+    bookingTotalMinor: number | null; verifiedAt: string | null; channel: string | null; failureReason: string | null;
+    refundReference: string | null; refundRequestedAt: string | null; refundProcessedAt: string | null; refundError: string | null;
+  };
+  booking: { appointmentId: string; reference: string; status: AppointmentStatus; startsAt: string; serviceName: string; therapistName: string } | null;
+  reservation: { status: string; startsAt: string; expiresAt: string; serviceName: string; therapistName: string } | null;
+  guest: { customerId: string; fullName: string; email: string | null; phone: string | null; contactName: string | null } | null;
+  refunds: { id: string; amountMinor: number; currency: string; method: RefundMethod; reference: string | null; note: string | null; recordedAt: string; recordedByName: string | null; isDemo: boolean }[];
+  events: { eventType: string; receivedAt: string; processedAt: string | null; processingError: string | null }[];
+  history: HistoryEntry[];
+}
+
+export interface AuditEntry extends HistoryEntry {
+  id: number;
+  entityType: string;
+  entityId: string | null;
+}
+
+export interface StaffAccount {
+  id: string;
+  email: string;
+  fullName: string;
+  phone: string | null;
+  role: 'owner' | 'admin' | 'therapist';
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  therapist: { id: string; name: string } | null;
+}
+
+export interface StaffList {
+  staff: StaffAccount[];
+  therapists: { id: string; name: string; profileId: string | null; isActive: boolean; updatedAt: string }[];
+}
+
+export interface Settings {
+  businessName: string;
+  timezone: string;
+  currency: string;
+  onlinePaymentEnabled: boolean;
+  paymentMode: 'full' | 'deposit';
+  depositPercent: number;
+  allowDemoPayments: boolean;
+  updatedAt: string;
+}
+
 export interface StaffOps {
   dashboard(): Promise<Dashboard>;
   appointments(from: string, to: string, therapistId?: string | null): Promise<AppointmentRow[]>;
@@ -413,7 +493,35 @@ export interface StaffOps {
   saveTherapist(id: string | null, version: string | null, input: TherapistInput, opts: ChangeOptions): Promise<{ id: string; conflicts: ConflictSummary }>;
   setTherapistServices(therapistId: string, serviceIds: string[], version: string, opts: ChangeOptions): Promise<ConflictSummary>;
   saveZone(id: string | null, version: string | null, input: ZoneInput, opts: ChangeOptions): Promise<{ id: string; conflicts: ConflictSummary }>;
+
+  payments(filter: PaymentFilter, limit: number, offset: number): Promise<{ rows: PaymentRow[]; total: number }>;
+  paymentDetail(id: string): Promise<PaymentDetail>;
+  recordRefund(paymentId: string, amountMinor: number, method: RefundMethod, reason: string, version: string, reference: string | null, note: string | null): Promise<void>;
+  auditLog(filter: { entityTypes: string[] | null; entityId: string | null; actionPrefix: string | null; beforeId: number | null; limit: number }): Promise<AuditEntry[]>;
+  settings(): Promise<Settings>;
+  updateBusinessName(version: string, name: string, reason: string): Promise<void>;
+  updatePaymentSettings(version: string, input: { onlinePaymentEnabled: boolean; paymentMode: 'full' | 'deposit'; depositPercent: number }, reason: string): Promise<void>;
+  staffList(): Promise<StaffList>;
+  setStaffRole(profileId: string, role: StaffAccount['role'], reason: string, version: string): Promise<void>;
+  setStaffActive(profileId: string, active: boolean, reason: string, version: string): Promise<void>;
+  linkTherapist(therapistId: string, profileId: string | null, reason: string, version: string): Promise<void>;
+  inviteStaff(email: string, fullName: string): Promise<{ profileId: string }>;
 }
+
+const mapPaymentRow = (r: any): PaymentRow => ({
+  id: r.payment_id ?? r.id, provider: r.provider, reference: r.reference, kind: r.kind, status: r.status,
+  amountMinor: Number(r.amount_minor), paidMinor: r.paid_minor === null ? null : Number(r.paid_minor),
+  refundedMinor: Number(r.refunded_minor), refundableMinor: Number(r.refundable_minor), currency: r.currency,
+  createdAt: r.created_at, paidAt: r.paid_at, needsRefund: r.needs_refund, needsRefundReason: r.needs_refund_reason,
+  needsRefundDetail: r.needs_refund_detail, refundStatus: r.refund_status, isDemo: r.is_demo, isTest: r.is_test,
+  appointmentId: r.appointment_id ?? null, appointmentReference: r.appointment_reference ?? null, startsAt: r.starts_at ?? null,
+  serviceName: r.service_name ?? null, guestName: r.guest_name ?? null, updatedAt: r.updated_at,
+});
+
+const mapHistory = (h: any): HistoryEntry => ({
+  occurredAt: h.occurred_at, action: h.action, actorKind: h.actor_kind, actorName: h.actor_name || null,
+  actorRole: h.actor_role, changes: h.changes ?? {}, reason: h.reason, context: h.context ?? {},
+});
 
 const weekToDb = (periods: WeekPeriod[]) =>
   periods.map((p) => ({ day_of_week: p.dayOfWeek, start_time: p.startTime, end_time: p.endTime }));
@@ -436,7 +544,7 @@ export function createSupabaseOps(client: SupabaseClient): StaffOps {
       return {
         today: d.today, todayTotal: d.today_total, todayRemaining: d.today_remaining, todayCompleted: d.today_completed,
         todayNoShow: d.today_no_show, todayToCollect: d.today_to_collect, awaitingOutcome: d.awaiting_outcome,
-        refundsFlagged: d.refunds_flagged, next7Days: d.next_7_days, scheduleConflicts: d.schedule_conflicts ?? 0,
+        refundsFlagged: d.refunds_flagged, next7Days: d.next_7_days, scheduleConflicts: d.schedule_conflicts ?? 0, paymentsWaiting: d.payments_waiting ?? 0,
       };
     },
 
@@ -718,6 +826,116 @@ export function createSupabaseOps(client: SupabaseClient): StaffOps {
         p_fields: { key: z.key, name: z.name, fee_minor: z.feeMinor, is_active: z.isActive, sort_order: z.sortOrder },
       });
       return { id: r.id, conflicts: mapSummary(r.conflicts) };
+    },
+
+    async payments(filter, limit, offset) {
+      const rows = await call<any[]>('staff_payments', { p_filter: filter, p_limit: limit, p_offset: offset });
+      return { rows: rows.map(mapPaymentRow), total: rows.length ? Number(rows[0].total_count) : 0 };
+    },
+
+    async paymentDetail(id) {
+      const d = await call('staff_payment_detail', { p_payment_id: id });
+      const p = d.payment;
+      return {
+        payment: {
+          ...mapPaymentRow({ ...p, payment_id: p.id }),
+          bookingTotalMinor: p.booking_total_minor === null ? null : Number(p.booking_total_minor), verifiedAt: p.verified_at,
+          channel: p.channel, failureReason: p.failure_reason, refundReference: p.refund_reference,
+          refundRequestedAt: p.refund_requested_at, refundProcessedAt: p.refund_processed_at, refundError: p.refund_error,
+          appointmentId: d.booking?.appointment_id ?? null, appointmentReference: d.booking?.reference ?? null,
+          startsAt: d.booking?.starts_at ?? d.reservation?.starts_at ?? null,
+          serviceName: d.booking?.service_name ?? d.reservation?.service_name ?? null,
+          guestName: d.guest?.contact_name ?? d.guest?.full_name ?? null,
+        },
+        booking: d.booking ? {
+          appointmentId: d.booking.appointment_id, reference: d.booking.reference, status: d.booking.status,
+          startsAt: d.booking.starts_at, serviceName: d.booking.service_name, therapistName: d.booking.therapist_name,
+        } : null,
+        reservation: d.reservation ? {
+          status: d.reservation.status, startsAt: d.reservation.starts_at, expiresAt: d.reservation.expires_at,
+          serviceName: d.reservation.service_name, therapistName: d.reservation.therapist_name,
+        } : null,
+        guest: d.guest ? {
+          customerId: d.guest.customer_id, fullName: d.guest.full_name, email: d.guest.email, phone: d.guest.phone, contactName: d.guest.contact_name,
+        } : null,
+        refunds: d.refunds.map((r: any) => ({
+          id: r.id, amountMinor: Number(r.amount_minor), currency: r.currency, method: r.method, reference: r.reference, note: r.note,
+          recordedAt: r.recorded_at, recordedByName: r.recorded_by_name || null, isDemo: r.is_demo,
+        })),
+        events: d.events.map((e: any) => ({ eventType: e.event_type, receivedAt: e.received_at, processedAt: e.processed_at, processingError: e.processing_error })),
+        history: d.history.map(mapHistory),
+      };
+    },
+
+    async recordRefund(paymentId, amountMinor, method, reason, version, reference, note) {
+      await call('owner_record_refund', {
+        p_payment_id: paymentId, p_amount_minor: amountMinor, p_method: method, p_reason: reason,
+        p_expected_updated_at: version, p_reference: reference, p_note: note,
+      });
+    },
+
+    async auditLog(f) {
+      const rows = await call<any[]>('staff_audit_log', {
+        p_entity_types: f.entityTypes, p_entity_id: f.entityId, p_action_prefix: f.actionPrefix, p_before_id: f.beforeId, p_limit: f.limit,
+      });
+      return rows.map((r) => ({ ...mapHistory(r), id: Number(r.id), entityType: r.entity_type, entityId: r.entity_id }));
+    },
+
+    async settings() {
+      const s = await call('staff_settings');
+      return {
+        businessName: s.business_name, timezone: s.timezone, currency: s.currency, onlinePaymentEnabled: s.online_payment_enabled,
+        paymentMode: s.payment_mode, depositPercent: s.deposit_percent, allowDemoPayments: s.allow_demo_payments, updatedAt: s.updated_at,
+      };
+    },
+
+    async updateBusinessName(version, name, reason) {
+      await call('staff_update_booking_rules', { p_expected_updated_at: version, p_reason: reason, p_business_name: name });
+    },
+
+    async updatePaymentSettings(version, s, reason) {
+      await call('owner_update_payment_settings', {
+        p_expected_updated_at: version, p_reason: reason, p_online_payment_enabled: s.onlinePaymentEnabled,
+        p_payment_mode: s.paymentMode, p_deposit_percent: s.depositPercent,
+      });
+    },
+
+    async staffList() {
+      const l = await call('owner_staff_list');
+      return {
+        staff: l.staff.map((s: any) => ({
+          id: s.id, email: s.email, fullName: s.full_name, phone: s.phone, role: s.role, isActive: s.is_active,
+          createdAt: s.created_at, updatedAt: s.updated_at, therapist: s.therapist,
+        })),
+        therapists: l.therapists.map((t: any) => ({ id: t.id, name: t.name, profileId: t.profile_id, isActive: t.is_active, updatedAt: t.updated_at })),
+      };
+    },
+
+    async setStaffRole(profileId, role, reason, version) {
+      await call('owner_set_staff_role', { p_profile_id: profileId, p_role: role, p_reason: reason, p_expected_updated_at: version });
+    },
+
+    async setStaffActive(profileId, active, reason, version) {
+      await call('owner_set_staff_active', { p_profile_id: profileId, p_active: active, p_reason: reason, p_expected_updated_at: version });
+    },
+
+    async linkTherapist(therapistId, profileId, reason, version) {
+      await call('owner_link_therapist', { p_therapist_id: therapistId, p_profile_id: profileId, p_reason: reason, p_expected_updated_at: version });
+    },
+
+    async inviteStaff(email, fullName) {
+      const { data, error } = await client.functions.invoke('staff-invite', { body: { email, fullName } });
+      if (error) {
+        let code = 'invite_failed';
+        try {
+          const body = await (error as any).context?.json?.();
+          if (typeof body?.error === 'string') code = body.error;
+        } catch {
+          // keep the generic code
+        }
+        throw new StaffError(code);
+      }
+      return { profileId: data.profileId };
     },
   };
 }

@@ -497,7 +497,7 @@ describe('staff screens\' reads', () => {
     expect(JSON.stringify(detail)).not.toContain('checkout');
 
     const dash = (await as('owner', () => one(db, `select staff_dashboard() as d`))).d;
-    expect(Object.keys(dash).sort()).toEqual(['awaiting_outcome', 'next_7_days', 'refunds_flagged', 'schedule_conflicts', 'today',
+    expect(Object.keys(dash).sort()).toEqual(['awaiting_outcome', 'next_7_days', 'payments_waiting', 'refunds_flagged', 'schedule_conflicts', 'today',
       'today_completed', 'today_no_show', 'today_remaining', 'today_to_collect', 'today_total']);
     expect(dash.refunds_flagged).toBeGreaterThanOrEqual(1);
 

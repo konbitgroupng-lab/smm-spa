@@ -187,3 +187,52 @@ describe('schedule and catalogue end to end (5c)', () => {
     expect((await failure(therapist.addBlackout(new Date(Date.now() + 86_400_000).toISOString(), new Date(Date.now() + 2 * 86_400_000).toISOString(), null, { reason: null, confirm: false }))).code).toBe('not_authorized');
   });
 });
+describe('payments, refunds and staff end to end (5d)', () => {
+  it('the owner invites through the Edge Function; admins cannot; duplicates are explained', async () => {
+    await createStaff(db, 'owner5d@example.com', 'owner');
+    const owner = await signedIn('owner5d@example.com');
+    const { profileId } = await owner.inviteStaff('invited.e2e@example.com', 'Invited Person');
+    const list = await owner.staffList();
+    expect(list.staff.find((s) => s.id === profileId)).toMatchObject({ email: 'invited.e2e@example.com', fullName: 'Invited Person', isActive: false });
+    expect((await failure(owner.inviteStaff('invited.e2e@example.com', 'Invited Person'))).code).toBe('already_registered');
+    expect((await failure(owner.inviteStaff('not an email', 'Someone'))).code).toBe('invalid_invitation');
+    const admin = await signedIn('admin@example.com');
+    expect((await failure(admin.inviteStaff('sneaky@example.com', 'Sneaky'))).code).toBe('not_authorized');
+    expect((await failure(admin.staffList())).code).toBe('not_authorized');
+  });
+
+  it('the owner records a refund on a paid booking; the admin sees it but cannot record one', async () => {
+    const hold = (await db.query<any>(`select * from request_booking_hold((select id from services where slug = 'swedish'), $1, null)`,
+      [at(upcoming(WED, 4), '10:30').toISOString()])).rows[0];
+    await db.query(`select attach_customer_to_hold($1, 'E2E Payer', 'e2e.payer@example.com', '+2348035551234')`, [hold.hold_token]);
+    const p = (await db.query<any>(`select begin_hold_payment($1, 'mock', true) as p`, [hold.hold_token])).rows[0].p;
+    await db.query(`select record_payment_result('mock', $1, 'success', $2, 'NGN')`, [p.reference, p.amount_minor]);
+
+    const admin = await signedIn('admin@example.com');
+    const row = (await admin.payments('succeeded', 50, 0)).rows.find((r) => r.reference === p.reference)!;
+    expect(row).toMatchObject({ isDemo: true, guestName: 'E2E Payer' });
+    expect((await failure(admin.recordRefund(row.id, 1000, 'cash', 'Goodwill', row.updatedAt, null, null))).code).toBe('not_authorized');
+
+    const owner = await signedIn('owner5d@example.com');
+    const detail = await owner.paymentDetail(row.id);
+    await owner.recordRefund(row.id, 1000, 'cash', 'Goodwill gesture', detail.payment.updatedAt, 'RC-1', 'Handed over at reception');
+    const after = await admin.paymentDetail(row.id);
+    expect(after.payment).toMatchObject({ status: 'partially_refunded', refundedMinor: 1000 });
+    expect(after.refunds).toEqual([expect.objectContaining({ method: 'cash', amountMinor: 1000, reference: 'RC-1' })]);
+    expect((await failure(owner.recordRefund(row.id, 1000, 'cash', 'Again', detail.payment.updatedAt, null, null))).code).toBe('stale_record');
+    const log = await admin.auditLog({ entityTypes: ['refund_records'], entityId: null, actionPrefix: 'payment.', beforeId: null, limit: 10 });
+    expect(log[0]).toMatchObject({ action: 'payment.refund_recorded', reason: 'Goodwill gesture', actorRole: 'owner' });
+  });
+
+  it('settings: owner-only payment settings; the demo switch is read-only', async () => {
+    const admin = await signedIn('admin@example.com');
+    const s = await admin.settings();
+    expect(s.allowDemoPayments).toBe(true);
+    expect((await failure(admin.updatePaymentSettings(s.updatedAt, { onlinePaymentEnabled: false, paymentMode: 'full', depositPercent: 50 }, 'Trying'))).code).toBe('not_authorized');
+    const owner = await signedIn('owner5d@example.com');
+    await owner.updatePaymentSettings(s.updatedAt, { onlinePaymentEnabled: true, paymentMode: 'deposit', depositPercent: 40 }, 'Deposits now');
+    expect(await admin.settings()).toMatchObject({ paymentMode: 'deposit', depositPercent: 40, allowDemoPayments: true });
+    const back = await owner.settings();
+    await owner.updatePaymentSettings(back.updatedAt, { onlinePaymentEnabled: true, paymentMode: 'full', depositPercent: 50 }, 'Back to full');
+  });
+});

@@ -55,7 +55,58 @@ export const ACTION_LABEL: Record<string, string> = {
   'appointment.settlement_changed': 'Settlement changed',
   'customer.created': 'Customer created',
   'customer.updated': 'Customer record updated',
+  'payment.refund_recorded': 'Refund recorded',
+  'staff.invited': 'Invited to the staff app',
+  'staff.role_changed': 'Role changed',
+  'staff.activated': 'Account activated',
+  'staff.deactivated': 'Account deactivated',
+  'staff.therapist_linked': 'Linked to a therapist',
+  'staff.therapist_unlinked': 'Unlinked from a therapist',
+  'staff.profile_updated': 'Own name or phone updated',
+  'settings.booking_rules_changed': 'Booking rules or business name changed',
+  'settings.payment_settings_changed': 'Payment settings changed',
+  'schedule.hours_changed': 'Opening hours changed',
+  'schedule.therapist_week_changed': 'Weekly hours changed',
+  'schedule.time_off_added': 'Time off added',
+  'schedule.time_off_removed': 'Time off removed',
+  'schedule.blackout_added': 'Closure added',
+  'schedule.blackout_removed': 'Closure removed',
+  'schedule.conflicts_accepted': 'Change saved despite affected bookings',
+  'catalogue.service_created': 'Treatment created',
+  'catalogue.service_updated': 'Treatment updated',
+  'catalogue.package_items_changed': 'Package contents changed',
+  'catalogue.therapist_created': 'Therapist created',
+  'catalogue.therapist_updated': 'Therapist updated',
+  'catalogue.therapist_services_changed': 'Therapist treatments changed',
+  'catalogue.zone_created': 'Area created',
+  'catalogue.zone_updated': 'Area updated',
 };
+
+export const ENTITY_LABEL: Record<string, string> = {
+  appointments: 'Booking', customers: 'Customer', payments: 'Payment', refund_records: 'Refund record', profiles: 'Staff account',
+  therapists: 'Therapist', therapist_services: 'Therapist treatments', therapist_schedules: 'Shift', therapist_breaks: 'Break',
+  therapist_time_off: 'Time off', blackout_dates: 'Closure', business_hours: 'Opening hours', business_settings: 'Settings',
+  services: 'Treatment', service_package_items: 'Package contents', dispatch_zones: 'In-home area',
+};
+
+export const PAYMENT_STATUS_LABEL: Record<string, string> = {
+  initialized: 'Started', pending: 'Waiting for the provider', succeeded: 'Paid', failed: 'Failed', abandoned: 'Abandoned',
+  refunded: 'Refunded', partially_refunded: 'Partly refunded',
+};
+
+export const REFUND_REASON_LABEL: Record<string, string> = {
+  slot_retaken: 'Time taken by another guest before payment arrived', hold_released: 'Reservation released before payment arrived',
+  slot_passed: 'Appointment time passed before payment arrived', amount_mismatch: 'Amount received differs from the booking',
+  currency_mismatch: 'Paid in another currency', duplicate_payment: 'Booking already paid', hold_missing: 'Reservation missing',
+  schedule_changed: 'Schedule changed before payment arrived', service_changed: 'Treatment changed before payment arrived',
+  therapist_unavailable: 'Therapist no longer available', appointment_cancelled: 'Booking cancelled', zone_unavailable: 'Area no longer served',
+};
+
+export const REFUND_METHOD_LABEL: Record<string, string> = {
+  provider_dashboard: 'Refunded in the payment provider\'s dashboard', bank_transfer: 'Bank transfer', cash: 'Cash',
+};
+
+export const ROLE_LABEL: Record<string, string> = { owner: 'Owner', admin: 'Admin', therapist: 'Therapist' };
 
 export const FIELD_LABEL: Record<string, string> = {
   starts_at: 'Start',
@@ -72,6 +123,29 @@ export const FIELD_LABEL: Record<string, string> = {
   cancelled_at: 'Cancelled at',
   cancellation_reason: 'Cancellation reason',
   cancelled_by: 'Cancelled by',
+  refunded_minor: 'Refunded',
+  refund_status: 'Refund status',
+  needs_refund: 'Needs refund',
+  needs_refund_reason: 'Refund reason',
+  paid_minor: 'Paid',
+  appointment_id: 'Booking',
+  role: 'Role',
+  is_active: 'Active',
+  profile_id: 'Staff account',
+  paid_at: 'Paid at',
+  channel: 'Payment method',
+  failure_reason: 'Failure reason',
+  refund_reference: 'Refund reference',
+  refund_reason: 'Refund note',
+  full_name: 'Name',
+  phone: 'Phone',
+  staff_notes: 'Staff notes',
+  email: 'Email',
+  price_minor: 'Price',
+  dispatch_fee_minor: 'Travel fee',
+  fee_minor: 'Travel fee',
+  duration_minutes: 'Length (minutes)',
+  buffer_minutes: 'Buffer (minutes)',
 };
 
 /** Why a booking is in conflict with the schedule or catalogue. */
