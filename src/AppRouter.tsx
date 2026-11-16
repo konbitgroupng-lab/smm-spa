@@ -6,6 +6,7 @@ import { resolveView } from './routes';
 // website's own bundle stays the same size.
 const BookingConfirmationPage = lazy(() => import('./booking/BookingConfirmationPage'));
 const DemoCheckoutPage = lazy(() => import('./prototype/DemoCheckoutPage'));
+const VideoGalleryPage = lazy(() => import('./videos/VideoGalleryPage'));
 
 export default function AppRouter({ search }: { search: string }) {
   const view = resolveView(search);
@@ -14,6 +15,7 @@ export default function AppRouter({ search }: { search: string }) {
     <Suspense fallback={null}>
       {view.page === 'payment-return' && <BookingConfirmationPage reference={view.reference} />}
       {view.page === 'demo-checkout' && <DemoCheckoutPage reference={view.reference} />}
+      {view.page === 'videos' && <VideoGalleryPage videoId={view.videoId} />}
     </Suspense>
   );
 }

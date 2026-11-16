@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   motion, 
   AnimatePresence 
@@ -38,8 +38,6 @@ import {
   Gift,
   Crown,
   BadgePercent,
-  Play,
-  Volume2,
   Send
 } from 'lucide-react';
 import {
@@ -56,31 +54,12 @@ import {
   Testimonial
 } from './data';
 import WhatsAppWidget from './components/WhatsAppWidget';
+import VideoGalleryPreview from './videos/VideoGalleryPreview';
 import SpaBookingWidget from './components/SpaBookingWidget';
 import BookingSection from './booking/components/LazyBookingSection';
 import { BOOKING_HEADING_ID, goToBooking } from './booking/navigation';
 import { useSiteCatalog } from './booking/useSiteCatalog';
 import type { CatalogPackage, CatalogService } from './services/catalogService';
-
-interface VideoGalleryItem {
-  id: string;
-  title: string;
-  category: 'services' | 'facility' | 'training';
-  videoUrl: string;
-  hasNarration?: boolean;
-}
-
-const videoGalleryData: VideoGalleryItem[] = [
-  { id: 'teeth-whitening', title: 'Teeth Whitening Session', category: 'services', videoUrl: '/assets/videos/gallery/teeth-whitening.mp4' },
-  { id: 'soft-wax', title: 'Soft Wax Treatment', category: 'services', videoUrl: '/assets/videos/gallery/soft-wax.mp4' },
-  { id: 'thai-stone-massage', title: 'Thai Stone Massage', category: 'services', videoUrl: '/assets/videos/gallery/thai-stone-massage.mp4' },
-  { id: 'full-body-detox', title: 'Full Body Detox', category: 'services', videoUrl: '/assets/videos/gallery/full-body-detox.mp4' },
-  { id: 'spa-rooms', title: 'Spa Rooms & Facility Tour', category: 'facility', videoUrl: '/assets/videos/gallery/spa-rooms.mp4' },
-  { id: 'lagos-walkthrough', title: 'Lagos Sanctuary Walkthrough', category: 'facility', videoUrl: '/assets/videos/gallery/lagos-walkthrough.mp4' },
-  { id: 'operational-hours', title: 'We Are Open', category: 'facility', videoUrl: '/assets/videos/gallery/operational-hours.mp4' },
-  { id: 'ceo-training-talk', title: 'CEO Training Talk', category: 'training', videoUrl: '/assets/videos/gallery/ceo-training-talk.mp4', hasNarration: true },
-  { id: 'abuja-training-highlight', title: 'Abuja Training Highlight', category: 'training', videoUrl: '/assets/videos/gallery/abuja-training-highlight.mp4', hasNarration: true },
-];
 
 interface TeamMember {
   id: string;
@@ -120,16 +99,6 @@ export default function App() {
   // Gallery Filters & Lightbox
   const [activeGalleryFilter, setActiveGalleryFilter] = useState<'all' | 'sanctuary' | 'treatments' | 'therapy'>('all');
   const [activeLightboxImage, setActiveLightboxImage] = useState<GalleryItem | null>(null);
-
-  // Video Gallery Filter & Modal Player
-  const [activeVideoCategory, setActiveVideoCategory] = useState<'all' | 'services' | 'facility' | 'training'>('all');
-  const [activeVideoModal, setActiveVideoModal] = useState<VideoGalleryItem | null>(null);
-  const videoModalRef = useRef<HTMLVideoElement>(null);
-
-  const closeVideoModal = () => {
-    videoModalRef.current?.pause();
-    setActiveVideoModal(null);
-  };
 
   // Accordion FAQ State
   const [expandedFaq, setExpandedFaq] = useState<string | null>(null);
@@ -202,11 +171,6 @@ export default function App() {
   const filteredGallery = activeGalleryFilter === 'all'
     ? galleryData
     : galleryData.filter(item => item.category === activeGalleryFilter);
-
-  // Filter video gallery items
-  const filteredVideoGallery = activeVideoCategory === 'all'
-    ? videoGalleryData
-    : videoGalleryData.filter(item => item.category === activeVideoCategory);
 
   // Filter service items by tab
   const filteredServices = activeSection === 'all'
@@ -824,147 +788,7 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      {/* Video Gallery Section - Our Services in Action, Facility, and Team & Training clips */}
-      <section id="video-gallery" className="py-24 bg-spa-cream border-t border-spa-taupe relative">
-        <div className="max-w-7xl mx-auto px-6">
-
-          {/* Section Header */}
-          <div className="text-center max-w-2xl mx-auto space-y-4 mb-16">
-            <span className="text-spa-gold text-xs uppercase tracking-[0.3em] font-semibold block">See It In Motion</span>
-            <h2 className="font-serif text-3xl md:text-5xl text-spa-charcoal">Video <span className="italic">Gallery</span></h2>
-            <div className="w-12 h-[1px] bg-spa-gold mx-auto mt-4"></div>
-            <p className="text-spa-clay text-sm font-light mt-4">
-              Real sessions, our boutique sanctuary, and the team behind SMM (Sweet Mobile Massage and Spa) &mdash; captured on video.
-            </p>
-          </div>
-
-          {/* Video Category Filter Tabs */}
-          <div className="flex justify-center items-center gap-2 sm:gap-4 mb-12 flex-wrap">
-            {[
-              { id: 'all', label: 'View All' },
-              { id: 'services', label: 'Services' },
-              { id: 'facility', label: 'Facility' },
-              { id: 'training', label: 'Team & Training' }
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveVideoCategory(tab.id as any)}
-                className={`px-5 py-2 rounded-full text-xs uppercase tracking-widest font-bold transition-all border ${
-                  activeVideoCategory === tab.id
-                    ? 'bg-spa-charcoal border-spa-charcoal text-white shadow-md'
-                    : 'bg-white hover:bg-spa-linen border-spa-taupe text-spa-clay'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Video Grid */}
-          <motion.div
-            layout
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
-          >
-            <AnimatePresence mode="popLayout">
-              {filteredVideoGallery.map((item) => (
-                <motion.div
-                  layout
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.9 }}
-                  transition={{ duration: 0.4 }}
-                  key={item.id}
-                  onClick={() => setActiveVideoModal(item)}
-                  className="group relative cursor-pointer overflow-hidden border border-spa-taupe bg-white p-2 rounded shadow-sm hover:shadow-2xl transition-all duration-300"
-                >
-                  <div className="relative aspect-[4/5] overflow-hidden rounded-sm bg-spa-charcoal">
-                    <video
-                      autoPlay
-                      muted
-                      loop
-                      playsInline
-                      className="w-full h-full object-cover brightness-95"
-                    >
-                      <source src={item.videoUrl} type="video/mp4" />
-                    </video>
-
-                    {/* Hover state content */}
-                    <div className="absolute inset-0 bg-spa-charcoal/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
-                      <span className="text-white text-xs uppercase tracking-widest font-bold border border-white/50 px-4 py-2 rounded backdrop-blur-sm">
-                        {item.hasNarration ? 'Play With Sound' : 'Play Video'}
-                      </span>
-                    </div>
-
-                    {item.hasNarration && (
-                      <div className="absolute top-3 left-3 flex items-center gap-1.5 bg-spa-gold text-spa-charcoal text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full shadow-sm pointer-events-none">
-                        <Volume2 className="w-3 h-3" />
-                        <span>Sound On</span>
-                      </div>
-                    )}
-
-                    <div className="absolute top-3 right-3 w-8 h-8 rounded-full bg-spa-charcoal/50 backdrop-blur-sm flex items-center justify-center pointer-events-none">
-                      <Play className="w-3.5 h-3.5 text-white fill-white" />
-                    </div>
-                  </div>
-                  <div className="pt-4 pb-2 px-1 flex justify-between items-center">
-                    <span className="font-serif text-base text-spa-charcoal font-medium">{item.title}</span>
-                    <span className="text-[10px] uppercase tracking-wider text-spa-gold font-bold capitalize">
-                      {item.category}
-                    </span>
-                  </div>
-                </motion.div>
-              ))}
-            </AnimatePresence>
-          </motion.div>
-
-        </div>
-      </section>
-
-      {/* VIDEO MODAL PLAYER - full controls, unmuted, closes cleanly and stops audio */}
-      <AnimatePresence>
-        {activeVideoModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={closeVideoModal}
-            className="fixed inset-0 bg-spa-charcoal/95 backdrop-blur-md z-50 flex items-center justify-center p-4 sm:p-8"
-          >
-            <button
-              onClick={closeVideoModal}
-              aria-label="Close video"
-              className="absolute top-6 right-6 text-white hover:text-spa-gold transition-colors p-2 bg-white/5 rounded-full z-10"
-            >
-              <X className="w-6 h-6" />
-            </button>
-
-            <motion.div
-              initial={{ scale: 0.95 }}
-              animate={{ scale: 1 }}
-              exit={{ scale: 0.95 }}
-              onClick={(e) => e.stopPropagation()}
-              className="max-w-md w-full flex flex-col gap-4 text-center"
-            >
-              <div className="relative rounded shadow-2xl border border-white/10 overflow-hidden bg-black">
-                <video
-                  ref={videoModalRef}
-                  key={activeVideoModal.videoUrl}
-                  src={activeVideoModal.videoUrl}
-                  autoPlay
-                  muted={false}
-                  controls
-                  playsInline
-                  className="w-full max-h-[80vh] mx-auto"
-                />
-              </div>
-              <div className="space-y-1">
-                <h3 className="font-serif text-2xl text-white font-medium">{activeVideoModal.title}</h3>
-                <p className="text-spa-gold text-xs uppercase tracking-widest font-bold capitalize">{activeVideoModal.category}</p>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <VideoGalleryPreview />
 
       {/* Meet Our Therapists Section */}
       <section id="therapists" className="py-24 bg-spa-linen border-t border-spa-taupe relative">
