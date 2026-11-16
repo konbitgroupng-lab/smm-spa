@@ -110,12 +110,14 @@ describe('date & time step', () => {
 
   it('marks the guest\'s own reserved time when they come back to change it', async () => {
     const api = makeApi({ getAvailableSlots: async () => [] }); // the server no longer lists a held time
-    api.getAvailableSlots.mockResolvedValueOnce([{ startsAt: new Date('2026-10-12T09:00:00+01:00').toISOString(), endsAt: new Date('2026-10-12T10:00:00+01:00').toISOString(), therapistIds: ['th-ada'] }]);
+    // A date that is always inside the bookable range (two days from now, Lagos).
+    const day = new Date(Date.now() + 2 * 86_400_000).toLocaleDateString('en-CA', { timeZone: 'Africa/Lagos' });
+    api.getAvailableSlots.mockResolvedValueOnce([{ startsAt: new Date(`${day}T09:00:00+01:00`).toISOString(), endsAt: new Date(`${day}T10:00:00+01:00`).toISOString(), therapistIds: ['th-ada'] }]);
     const { user } = renderFunnel(api, { catalog: makeCatalog() });
     await user.click(screen.getByRole('radio', { name: /swedish massage/i }));
     await user.click(nextButton(/next: therapist/i));
     await user.click(nextButton(/next: date/i));
-    await user.click(screen.getByRole('radio', { name: /monday 12 october 2026/i }).closest('label')!.querySelector('input')!);
+    await user.click(screen.getAllByRole('radio').find((r) => (r as HTMLInputElement).value === day)!);
     await user.click(await screen.findByRole('button', { name: '09:00' }));
     await screen.findByRole('heading', { level: 3, name: /your details/i });
 

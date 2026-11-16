@@ -34,6 +34,10 @@ export interface ConfirmationApi {
   startPayment: typeof startPayment;
 }
 
+// One shared object: a default built per render would give `check` a new
+// identity on every render and re-run the verify effect without end.
+const defaultConfirmationApi: ConfirmationApi = { verifyPayment, startPayment };
+
 function Card({ icon, title, tone, children }: { icon: ReactNode; title: string; tone: 'good' | 'wait' | 'bad'; children: ReactNode }) {
   const toneClass = tone === 'good' ? 'text-green-800' : tone === 'bad' ? 'text-spa-berry' : 'text-spa-charcoal';
   return (
@@ -52,7 +56,7 @@ function Card({ icon, title, tone, children }: { icon: ReactNode; title: string;
 
 export default function BookingConfirmationPage({
   reference,
-  api = { verifyPayment, startPayment },
+  api = defaultConfirmationApi,
   navigate = browser.assign,
   timeZone = DEFAULT_TIMEZONE,
   pollEveryMs = POLL_EVERY_MS,
