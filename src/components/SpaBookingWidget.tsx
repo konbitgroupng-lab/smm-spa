@@ -40,7 +40,7 @@ export default function SpaBookingWidget() {
   if (dismissed || bookingInView) return null;
 
   return (
-    <div className="fixed bottom-5 right-5 z-50 sm:bottom-6 sm:right-6">
+    <div className="fixed bottom-5 left-5 z-50 sm:bottom-6 sm:left-6">
       <div className="relative">
         <button
           onClick={handleDismiss}

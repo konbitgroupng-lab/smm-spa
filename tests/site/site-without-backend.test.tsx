@@ -70,7 +70,7 @@ describe('the website without a backend', () => {
   it('going to booking closes the WhatsApp chat panel so it cannot cover the booking steps', async () => {
     render(<AppRouter search="" />);
     const user = userEvent.setup();
-    await user.click(screen.getByRole('button', { name: /chat on whatsapp/i }));
+    await user.click(screen.getByRole('button', { name: /chat with us on whatsapp/i }));
     expect(screen.getByRole('button', { name: /close chat/i })).toBeTruthy();
     await user.click(screen.getByRole('button', { name: /spa appointments/i }));
     await waitFor(() => expect(screen.queryByRole('button', { name: /close chat/i })).toBeNull());

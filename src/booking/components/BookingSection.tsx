@@ -4,15 +4,16 @@ import { useBookingCatalog, type CatalogApi } from '../useBookingCatalog';
 import type { FunnelApi } from '../useBookingFunnel';
 import BookingFunnel from './BookingFunnel';
 import { focusRing, PrimaryButton } from './ui';
+import { PHONE_DISPLAY, PHONE_E164, whatsappUrl } from '../../config/business';
 
 // The site's "Book online" section: the funnel when the backend is available,
 // otherwise a way to book by WhatsApp or phone. The rest of the site renders
 // either way.
 
-// Same contact details as the site footer (unchanged pending client verification).
-const WHATSAPP = `https://wa.me/2348118599365?text=${encodeURIComponent("Hi! I'd like to book a treatment.")}`;
-const PHONE = '+2348118599365';
-const PHONE_LABEL = '+234 811 859 9365';
+// Contact details from the shared business configuration.
+const WHATSAPP = whatsappUrl("Hi! I'd like to book a treatment.");
+const PHONE = PHONE_E164;
+const PHONE_LABEL = PHONE_DISPLAY;
 
 function Panel({ children }: { children: ReactNode }) {
   return <div className="space-y-5 rounded border border-spa-taupe bg-white p-6 text-center shadow-2xl sm:p-10">{children}</div>;

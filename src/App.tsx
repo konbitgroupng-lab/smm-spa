@@ -53,8 +53,9 @@ import {
   GalleryItem,
   Testimonial
 } from './data';
-import WhatsAppWidget from './components/WhatsAppWidget';
 import VideoGalleryPreview from './videos/VideoGalleryPreview';
+import { PHONE_DISPLAY, PHONE_E164, whatsappUrl } from './config/business';
+import WhatsAppEnquiryLink from './components/WhatsAppEnquiryLink';
 import SpaBookingWidget from './components/SpaBookingWidget';
 import BookingSection from './booking/components/LazyBookingSection';
 import { BOOKING_HEADING_ID, goToBooking } from './booking/navigation';
@@ -181,7 +182,6 @@ export default function App() {
     <div className="relative min-h-screen selection:bg-spa-gold selection:text-white">
 
       {/* Floating viewport-anchored widgets - visible immediately, not scroll-dependent */}
-      <WhatsAppWidget />
       <SpaBookingWidget />
 
       {/* Toast Notification */}
@@ -218,7 +218,7 @@ export default function App() {
           </a>
 
           {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center gap-4 lg:gap-8 xl:gap-12 whitespace-nowrap">
+          <nav className="hidden md:flex items-center gap-4 lg:gap-8 xl:gap-12 whitespace-nowrap [text-shadow:0_1px_3px_rgba(0,0,0,0.35)]">
             <a href="#about" className="text-xs uppercase tracking-widest text-spa-linen/90 hover:text-spa-gold transition-colors duration-200">About Us</a>
             <a href="#services" className="text-xs uppercase tracking-widest text-spa-linen/90 hover:text-spa-gold transition-colors duration-200">Services</a>
             <a href="#packages" className="text-xs uppercase tracking-widest text-spa-linen/90 hover:text-spa-gold transition-colors duration-200">Packages</a>
@@ -259,6 +259,7 @@ export default function App() {
           {/* Brand gradient wash - darkening scrim for text contrast + the flyer's signature terracotta-to-berry tint */}
           <div className="absolute inset-0 bg-black/30"></div>
           <div className="absolute inset-0 brand-gradient opacity-75"></div>
+          <div className="hero-top-scrim" aria-hidden="true"></div>
           <div className="absolute bottom-0 left-0 w-full h-32 bg-gradient-to-t from-spa-cream to-transparent"></div>
 
           <div className="relative z-10 h-full flex items-center justify-center">
@@ -323,6 +324,7 @@ export default function App() {
             className="absolute inset-0 w-full h-full object-cover object-[center_65%] select-none"
             referrerPolicy="no-referrer"
           />
+          <div className="hero-top-scrim" aria-hidden="true"></div>
 
           <a
             href="#booking"
@@ -346,6 +348,7 @@ export default function App() {
             className="absolute inset-0 w-full h-full object-cover object-[52%_58%] sm:object-[center_62%] select-none"
             referrerPolicy="no-referrer"
           />
+          <div className="hero-top-scrim hero-top-scrim--bright" aria-hidden="true"></div>
 
           <a
             href="#booking"
@@ -559,6 +562,7 @@ export default function App() {
                   >
                     Select & Customize Booking
                   </button>
+                  <WhatsAppEnquiryLink name={service.name} details={[`${service.duration} mins`, service.formattedPrice]} />
                 </div>
               </div>
             ))}
@@ -644,6 +648,7 @@ export default function App() {
                   >
                     Book This Package
                   </button>
+                  <WhatsAppEnquiryLink name={`the ${pkg.name} package`} details={[`${pkg.duration} mins`, pkg.formattedPrice]} />
                 </div>
               </div>
             ))}
@@ -890,7 +895,7 @@ export default function App() {
               An SMM Gift Card is available in any amount, redeemable on both sanctuary and mobile bookings, and never expires. Better than flowers.
             </p>
             <a
-              href={`https://wa.me/2348118599365?text=${encodeURIComponent("Hi! I'd like to purchase an SMM (Sweet Mobile Massage and Spa) gift card.")}`}
+              href={whatsappUrl("Hi! I'd like to purchase an SMM (Sweet Mobile Massage and Spa) gift card.")}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 bg-spa-gold hover:bg-spa-gold-dark text-spa-charcoal hover:text-white px-6 py-3 text-xs font-bold uppercase tracking-widest transition-all duration-300 rounded"
@@ -919,7 +924,7 @@ export default function App() {
               ))}
             </ul>
             <a
-              href={`https://wa.me/2348118599365?text=${encodeURIComponent("Hi! I'd like to join the SMM Wellness Circle membership.")}`}
+              href={whatsappUrl("Hi! I'd like to join the SMM Wellness Circle membership.")}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 border border-spa-gold/60 hover:bg-spa-gold hover:text-spa-charcoal text-spa-gold px-6 py-3 text-xs font-bold uppercase tracking-widest transition-all duration-300 rounded"
@@ -1167,7 +1172,7 @@ export default function App() {
                 </li>
                 <li className="flex items-center gap-2">
                   <Phone className="w-3.5 h-3.5 text-spa-gold flex-shrink-0" />
-                  <a href="tel:+2348118599365" className="hover:text-spa-gold transition-colors">+234 811 859 9365</a>
+                  <a href={`tel:${PHONE_E164}`} className="hover:text-spa-gold transition-colors">{PHONE_DISPLAY}</a>
                   <span className="text-spa-linen/40">/</span>
                   <a href="tel:+2347066672648" className="hover:text-spa-gold transition-colors">0706 672 648</a>
                 </li>

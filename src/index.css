@@ -53,6 +53,42 @@ body {
   background: linear-gradient(160deg, #CB9873 0%, #C97A94 50%, #8B3A63 100%);
 }
 
+/* Hero: a soft dark fade behind the transparent navigation so the white menu
+   labels read on bright slides. It sits over each slide's photo, under that
+   slide's own text, and never takes clicks. Darkest at the top, gone by the
+   bottom of the band; shorter on phones, where the bar is only logo + button. */
+.hero-top-scrim {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: clamp(180px, 26vh, 240px);
+  background: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.48) 0%,
+    rgba(0, 0, 0, 0.28) 45%,
+    rgba(0, 0, 0, 0.08) 75%,
+    rgba(0, 0, 0, 0) 100%
+  );
+  pointer-events: none;
+}
+/* For a slide whose top is near-white: the same fade, a little deeper, so the
+   menu still reaches readable contrast. */
+.hero-top-scrim--bright {
+  background: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.66) 0%,
+    rgba(0, 0, 0, 0.4) 45%,
+    rgba(0, 0, 0, 0.1) 75%,
+    rgba(0, 0, 0, 0) 100%
+  );
+}
+@media (min-width: 768px) {
+  .hero-top-scrim {
+    height: clamp(240px, 34vh, 340px);
+  }
+}
+
 /* Footer logo: the header's gold/black SMM badge, recolored via mask into the blush-to-plum palette.
    Uses a mask-specific asset with alpha graded by original luminance, so the badge disc and the
    "SMM" linework still read as distinct shades once flattened to a single gradient fill. */

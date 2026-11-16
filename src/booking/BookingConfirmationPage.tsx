@@ -1,6 +1,7 @@
 import { CalendarCheck, CircleAlert, Clock, RotateCcw } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { startPayment, verifyPayment, type PaymentOutcome } from '../services/paymentService';
+import { whatsappUrl } from '../config/business';
 import DemoPaymentNotice from './components/DemoPaymentNotice';
 import { focusRing, PrimaryButton, SecondaryButton } from './components/ui';
 import { DEFAULT_TIMEZONE, formatDateLong, formatTime, localDateOf } from './dates';
@@ -25,7 +26,7 @@ const REFUND_REASONS: Record<string, string> = {
   duplicate_payment: 'This booking had already been paid for, so this payment was not needed.',
 };
 
-const WHATSAPP = `https://wa.me/2348118599365?text=${encodeURIComponent('Hi! I have a question about my booking.')}`;
+const WHATSAPP = whatsappUrl('Hi! I have a question about my booking.');
 const POLL_EVERY_MS = 3000;
 const MAX_AUTO_CHECKS = 10;
 
