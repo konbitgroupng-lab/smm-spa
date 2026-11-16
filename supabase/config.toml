@@ -437,3 +437,8 @@ verify_jwt = false
 # then asks the database, as that user, whether they are an active owner.
 [functions.staff-invite]
 verify_jwt = true
+
+# Owner/admin website image uploads and removals. Requires a signed-in user's
+# JWT; the function then asks the database, as that user, for their role.
+[functions.staff-media]
+verify_jwt = true

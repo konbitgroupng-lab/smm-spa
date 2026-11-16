@@ -18,7 +18,8 @@ SMM is a React 19 + Vite + Tailwind site backed by Supabase (Postgres, Auth, Row
 | Payments, refunds, staff accounts, settings, activity log | Done (Phase 5d). See "Payments, refunds, staff and audit". |
 | Phase 5 integration and security review | Done (Phase 5e). See "Phase 5e integration" and [PHASE-5-SECURITY-REVIEW.md](PHASE-5-SECURITY-REVIEW.md). |
 | Staff app (`/staff/`) | Sign-in, password links, role-based navigation, own account (5a); every Phase 5 screen above. |
-| CMS, analytics, notifications | Phase 6; see "Deferred to Phases 5 and 6". |
+| Website content security | Done (Phase 6a): content changes only through audited staff functions, minimum public columns, uploads through the `staff-media` function. See "Website content (Phase 6a)". No staff screens yet (6b); the public site still shows its static content (6c). |
+| Intake, gold-label contrast, production runbook | Phase 6b-6f, not started. Analytics and notifications are out of scope. |
 
 ## Quick start
 
@@ -262,10 +263,10 @@ No domain code changes: the switch is configuration plus one end-to-end test. Us
 
 | Who | Can do (Phase 5a) |
 | --- | --- |
-| Guest (`anon`) | Read 14 public tables (active services, therapists, zones, opening hours, settings, published content). Call one function, `get_available_slots`; holds and payments go through the Edge Functions. No access to the `private` schema, staff functions, customers, appointments, payments, holds or the audit log. |
+| Guest (`anon`) | Read 14 public tables (active services, therapists, zones, opening hours, settings, published content; since 6a only the website's columns of the six content tables). Call one function, `get_available_slots`; holds and payments go through the Edge Functions. No access to the `private` schema, staff functions, customers, appointments, payments, holds or the audit log. |
 | Signed in, no staff access (new or deactivated account) | Read their own profile; `staff_whoami()` reports why there is no access. Nothing else. |
 | Therapist | Their own schedule, breaks and time off; their own appointments **only** through `therapist_agenda()` (booking contact name and phone, address, guest notes, booking notes, source, paid / deposit paid / to collect; no email, customer master record, staff notes, amounts or payment details; since 5b no direct read of the appointments table); mark their own started appointments completed or no-show; intake answers for those appointments (unused until Phase 6); blackout dates; their own name and phone. No direct writes. |
-| Admin | Read appointments, customers, holds, payments, staff profiles and the audit log. All appointment and customer actions through the 5b functions (create phone/WhatsApp bookings, reschedule with rule override, cancel, outcomes and corrections, booking details, settlement, customer records). Schedules and the catalogue through the 5c functions (versioned, audited, conflict-checked); booking rules through `staff_update_booking_rules()`. Content and media (Phase 6). |
+| Admin | Read appointments, customers, holds, payments, staff profiles and the audit log. All appointment and customer actions through the 5b functions (create phone/WhatsApp bookings, reschedule with rule override, cancel, outcomes and corrections, booking details, settlement, customer records). Schedules and the catalogue through the 5c functions (versioned, audited, conflict-checked); booking rules through `staff_update_booking_rules()`. Website content and media through the 6a functions and the `staff-media` function. |
 | Owner | Everything an admin can, plus inviting staff, staff roles and activation, linking therapist records to accounts, payment settings, and recording refunds made outside the system. |
 | `service_role` (Edge Functions) | The only writer of `booking_holds`, `payments` and `payment_events`, so payment figures cannot be edited from the staff app. |
 
@@ -316,7 +317,44 @@ makes `private.staff_role()` return nothing for an owner session without a secon
 
 ### Storage
 
-One public bucket, `site-media` (5 MB limit; JPEG, PNG, WebP, AVIF), with folders `services/`, `therapists/`, `gallery/`, `site/`. Only owner/admin can upload, replace or delete. Tables reference files through `media_assets`; the `image_url` / `photo_url` columns hold the current static paths until images are migrated.
+One public bucket, `site-media` (5 MB limit; JPEG, PNG, WebP, AVIF), with folders `services/`, `therapists/`, `gallery/`, `site/`. Since Phase 6a no signed-in user can upload, list, replace or delete files directly: the `staff-media` Edge Function does it for owner and admin (see "Website content (Phase 6a)"). Tables reference files through `media_assets`; the `image_url` / `photo_url` columns hold the current static paths until images are migrated.
+
+## Website content (Phase 6a)
+
+Migrations `20261016000100_content_security.sql` and `20261016000200_content_functions.sql`. This closes finding 3 of the Phase 5 security review for the six website content tables: `faqs`, `testimonials`, `gallery_items`, `announcements`, `site_content`, `media_assets`. The two intake tables keep their Phase 1 rules until Phase 6d.
+
+**Access model.**
+
+| Who | Content tables | Storage (`site-media`) |
+| --- | --- | --- |
+| Guest, and every signed-in user reading directly | Published rows only, and only the columns the website shows (below). No writes. | Public file URLs only. |
+| Owner, admin | Everything, through `staff_content()`; every change through the functions below. No direct reads of management columns, no direct writes. | Through `staff-media` only. |
+| Therapist, new or deactivated account | Same as a guest. | None. |
+| `service_role` | Unchanged (the upload function, the demo purge). | The upload function. |
+
+Columns readable through the API: `faqs` (id, question, answer, sort_order, is_published); `testimonials` (id, author_name, author_location, body, rating, service_id, sort_order, is_published); `gallery_items` (id, title, category, image_url, image_media_id, sort_order, is_published); `announcements` (id, kind, title, body, starts_at, ends_at, is_published); `site_content` (key, value, is_published); `media_assets` (id, bucket, path, alt_text, width, height). Staff account ids (`updated_by`, `created_by`), descriptions, demo flags, timestamps, file sizes and types are not. `select *` on these tables is refused; name the columns. A `media_assets` row is visible only while a published gallery item, an active service or an active therapist uses it.
+
+**Functions (owner and admin).** All follow the Phase 5 pattern: role first, then the version the screen was showing (`stale_record`), then a labelled audit entry.
+
+| Function | Does |
+| --- | --- |
+| `staff_content()` | Every FAQ, testimonial, gallery item, announcement, content block and media file, published or not, with versions and how often each file is used. |
+| `staff_save_faq`, `staff_save_testimonial`, `staff_save_gallery_item`, `staff_save_announcement` `(id, version, fields)` | Create (null id; always unpublished) or edit. |
+| `staff_save_site_content(key, version, value, is_published)` | A keyed block. Only `contact` (address, phone, phone_secondary, email, whatsapp) and `homepage.hero` (heading, subheading) exist; values are text. |
+| `staff_set_content_published(kind, id, published, version)` | Show an item on the website or take it off. |
+| `staff_reorder_content(kind, ids)` | Order a whole list; refused (`stale_record`) if the list changed in the meantime. |
+| `staff_delete_content(kind, id, reason, version)` | Delete for good. Needs a reason; refused (`still_published`) until the item is unpublished. |
+| `staff_register_media`, `staff_update_media`, `staff_remove_media` | The media library. A file can be added only if the server stored it at a generated path; it cannot be removed while a gallery item, service or therapist refers to it (`media_in_use`); removal needs a reason. |
+
+New error codes: `invalid_content`, `still_published`, `invalid_media`, `media_not_uploaded`, `media_exists`, `media_in_use`, `media_not_found`.
+
+All content is plain text and must be rendered as text. A gallery image is either a registered upload or a path under `/assets/`; no other address is accepted.
+
+**The `staff-media` Edge Function** (`verify_jwt = true`). It asks the database who the caller is with the caller's own token (`staff_whoami`), and continues only for an active owner or admin. Uploads are a multipart form (`file`, `folder`, `alt_text`): the real type is read from the file's first bytes (JPEG, PNG, WebP or AVIF; the name and declared type are ignored), the size limit is 5 MB, 60 uploads per person per hour, and the file is stored as `<folder>/<random id>.<extension>`. It is then added to the library as the caller, which records who added it; if that fails the file is deleted again. Removal is a JSON request (`action: "remove"`, `mediaId`, `reason`, `expectedUpdatedAt`): the database decides, then the file is deleted. It needs `ALLOWED_ORIGINS`; nothing else beyond what Supabase provides.
+
+**Audit.** The six tables are audited like the others. Testimonial author name and location are recorded as "changed" only.
+
+**Limits.** The bucket is public, so a file's address works for anyone who has it, including a file that is no longer listed; generated names make addresses unguessable. Width and height are read from the file header and are informational. `staff_register_media` relies on the function owner being able to read `storage.objects`; confirm this on hosted Supabase at the hosted verification step. Neither the staff app nor the public site uses these functions yet (6b, 6c).
 
 ## Frontend data layer
 
@@ -505,6 +543,10 @@ Not part of the funnel, by decision:
 | `tests/db/security-snapshot.test.ts` | 5e: the exact functions each role can call, server-only functions, no default execute grants, every staff function checks the role itself, RLS on every table, the only directly writable tables, no secret columns |
 | `tests/db/phase5-mixed-concurrency.test.ts` | 5e: guest reservations, phone booking, reschedule, time off, payment completion, cancellation and refund racing together on real PostgreSQL, with system-wide invariants |
 | `tests/e2e/guest-to-staff.test.ts` | 5e: a website booking handled by staff end to end, and what the guest is told throughout |
+| `tests/db/content-security.test.ts` | 6a: no direct writes to the six content tables for any role; the exact columns guests and signed-in users can read; unpublished rows and unused media invisible; audit coverage; no direct Storage access |
+| `tests/db/content-functions.test.ts` | 6a: every content function against guest, new account, inactive admin, therapist, admin and owner; validation; versions; publish, reorder and delete rules; media library rules; audit entries without testimonial names |
+| `tests/functions/staff-media.test.ts` | 6a: the upload function: real file-type detection, spoofed names, size and folder limits, rate limit, clean-up on failure, removal, who may call it |
+| `tests/db/content-concurrency.test.ts` | 6a races on real PostgreSQL: two edits from one version, publish against delete, reorder against delete and add, file removal against attaching it, two first saves of a content block |
 | `tests/staff/client-separation.test.ts` | The website's client keeps no session and ignores login links; separate storage keys; no staff imports or secrets in the website |
 
 The local test backend (`tests/support/local-backend.ts`) serves the real Edge Function handlers and the database's REST reads and RPC calls over HTTP, so the site's own code can be tested end to end without Docker or a Supabase account. Given a `staffPassword`, it also stands in for Supabase Auth (password sign-in with unsigned test tokens) and runs RPC calls as the signed-in user.
@@ -552,7 +594,7 @@ Decide or fix these in the booking-funnel and payment phases:
 
 ## Carried into Phase 6 planning
 
-- Move the website content and intake tables (FAQs, testimonials, gallery, media, site content, announcements, intake questions and answers) behind audited server-side functions with authorization, RLS and tests; the staff app must not gain direct write access.
+- Move the website content and intake tables (FAQs, testimonials, gallery, media, site content, announcements, intake questions and answers) behind audited server-side functions with authorization, RLS and tests; the staff app must not gain direct write access. **Done for the six content tables in 6a; the two intake tables follow in 6d.**
 - Site-wide gold eyebrow label contrast (brand and accessibility decision).
 - Still deferred: hosted Supabase verification, real Paystack, deployment configuration (SMTP, `STAFF_APP_URL`, `ALLOWED_ORIGINS`).
 

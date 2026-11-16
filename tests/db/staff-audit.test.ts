@@ -25,10 +25,11 @@ describe('audit coverage', () => {
       select c.relname from pg_trigger t join pg_class c on c.oid = t.tgrelid
       where t.tgname = 'audit_row_change' order by 1`);
     expect(audited.map((r) => r.relname)).toEqual([
-      'appointments', 'blackout_dates', 'business_hours', 'business_settings', 'customers', 'dispatch_zones', 'payments', 'profiles',
-      'refund_records', 'service_package_items', 'services', 'therapist_breaks', 'therapist_schedules', 'therapist_services',
-      'therapist_time_off', 'therapists',
-    ]);
+      'announcements', 'appointments', 'blackout_dates', 'business_hours', 'business_settings', 'customers', 'dispatch_zones',
+      'faqs', 'gallery_items', 'media_assets', 'payments', 'profiles',
+      'refund_records', 'service_package_items', 'services', 'site_content', 'testimonials', 'therapist_breaks',
+      'therapist_schedules', 'therapist_services', 'therapist_time_off', 'therapists',
+    ]); // Phase 6a added the six website content tables
   });
 
   it('a staff function records the actor, role, named action, reason and the change', async () => {
@@ -175,10 +176,18 @@ describe('guests (anon) reach only the public catalogue and the availability sea
       select table_name, string_agg(privilege_type, ',' order by privilege_type) as privileges
       from information_schema.role_table_grants where grantee = 'anon' and table_schema = 'public'
       group by table_name order by table_name`);
+    // Whole-table reads: the catalogue and settings.
     expect(grants).toEqual([
-      'announcements', 'business_hours', 'business_settings', 'dispatch_zones', 'faqs', 'gallery_items', 'intake_questions',
-      'media_assets', 'service_package_items', 'services', 'site_content', 'testimonials', 'therapist_services', 'therapists',
+      'business_hours', 'business_settings', 'dispatch_zones', 'intake_questions',
+      'service_package_items', 'services', 'therapist_services', 'therapists',
     ].map((table_name) => ({ table_name, privileges: 'SELECT' })));
+    // Phase 6a: the six website content tables are readable by named column only
+    // (tests/db/content-security.test.ts pins the columns).
+    const byColumn = await rows(db, `
+      select distinct table_name from information_schema.column_privileges
+      where grantee = 'anon' and table_schema = 'public' and privilege_type = 'SELECT' and table_name <> all ($1) order by 1`,
+      [grants.map((g) => g.table_name)]);
+    expect(byColumn.map((r) => r.table_name)).toEqual(['announcements', 'faqs', 'gallery_items', 'media_assets', 'site_content', 'testimonials']);
     const columnWrites = await rows(db, `select 1 from information_schema.column_privileges where grantee = 'anon' and table_schema = 'public' and privilege_type <> 'SELECT'`);
     expect(columnWrites).toEqual([]);
   });

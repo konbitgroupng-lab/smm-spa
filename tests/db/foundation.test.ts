@@ -269,9 +269,10 @@ describe('RLS: owner/admin', () => {
     ).rejects.toThrow(/permission denied/);
   });
 
-  it('can manage site media in storage; therapists cannot', async () => {
+  it('cannot write site media to storage directly, and neither can anyone else', async () => {
+    // Phase 6a: uploads go through the staff-media function (tests/functions/staff-media.test.ts).
     const upload = () => db.query(`insert into storage.objects (bucket_id, name) values ('site-media', 'gallery/' || gen_random_uuid() || '.webp')`);
-    await expect(asRole(db, 'authenticated', ownerId, upload)).resolves.toBeDefined();
+    await expect(asRole(db, 'authenticated', ownerId, upload)).rejects.toThrow(/row-level security/);
     await expect(asRole(db, 'authenticated', therapistAUser, upload)).rejects.toThrow(/row-level security/);
     await expect(asRole(db, 'anon', null, upload)).rejects.toThrow(/row-level security/);
   });

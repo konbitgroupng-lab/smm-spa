@@ -30,6 +30,10 @@ const STAFF_FUNCTIONS = [
   'staff_set_appointment_status', 'staff_set_business_hours', 'staff_set_package_items', 'staff_set_settlement',
   'staff_set_therapist_services', 'staff_set_therapist_week', 'staff_settings', 'staff_update_booking_details',
   'staff_update_booking_rules', 'staff_update_customer', 'staff_update_own_profile', 'staff_whoami', 'therapist_agenda',
+  // Phase 6a: website content.
+  'staff_content', 'staff_delete_content', 'staff_register_media', 'staff_remove_media', 'staff_reorder_content',
+  'staff_save_announcement', 'staff_save_faq', 'staff_save_gallery_item', 'staff_save_site_content', 'staff_save_testimonial',
+  'staff_set_content_published', 'staff_update_media',
 ];
 const SERVER_ONLY = [
   'attach_customer_to_hold', 'begin_hold_payment', 'consume_rate_limit', 'create_booking_hold', 'finish_payment_event',
@@ -80,6 +84,7 @@ describe('what each role can call', () => {
       `select staff_dashboard()`, `select * from staff_appointments(now(), now() + interval '1 day')`, `select * from staff_payments('all')`,
       `select * from staff_audit_log()`, `select staff_settings()`, `select staff_catalogue()`, `select staff_schedule_overview()`,
       `select * from staff_customer_directory()`, `select owner_staff_list()`, `select * from therapist_agenda(now(), now() + interval '1 day')`,
+      `select staff_content()`,
     ]) {
       await expect(asRole(db, 'authenticated', newAccount, () => db.query(sql)), sql).rejects.toThrow(/not_authorized/);
     }
@@ -92,15 +97,18 @@ describe('tables', () => {
       where n.nspname = 'public' and c.relkind = 'r' and not c.relrowsecurity`)).toEqual([]);
   });
 
-  it('signed-in users can write directly only to the Phase 6 content and intake tables (owner/admin by policy)', async () => {
+  it('signed-in users can write directly only to the two intake tables, which Phase 6d closes (owner/admin by policy)', async () => {
     const writable = (await rows(db, `select distinct table_name from information_schema.role_table_grants
       where grantee = 'authenticated' and table_schema = 'public' and privilege_type in ('INSERT', 'UPDATE', 'DELETE', 'TRUNCATE')
       order by 1`)).map((r) => r.table_name);
-    expect(writable).toEqual(['announcements', 'appointment_intake_answers', 'faqs', 'gallery_items', 'intake_questions',
-      'media_assets', 'site_content', 'testimonials']);
+    // Phase 6a took the six website content tables off this list.
+    expect(writable).toEqual(['appointment_intake_answers', 'intake_questions']);
+    expect(await rows(db, `select table_name, column_name from information_schema.column_privileges
+      where grantee in ('authenticated', 'anon', 'PUBLIC') and table_schema = 'public' and privilege_type <> 'SELECT'
+        and table_name not in ('appointment_intake_answers', 'intake_questions')`)).toEqual([]);
     // Their policies admit owner/admin only.
     for (const table of writable) {
-      const changed = await asRole(db, 'authenticated', therapist, async () => (await db.query(`update ${table} set ${({ appointment_intake_answers: 'answer = answer', site_content: 'updated_at = updated_at' } as Record<string, string>)[table] ?? 'created_at = created_at'}`)).affectedRows);
+      const changed = await asRole(db, 'authenticated', therapist, async () => (await db.query(`update ${table} set ${({ appointment_intake_answers: 'answer = answer' } as Record<string, string>)[table] ?? 'created_at = created_at'}`)).affectedRows);
       expect(changed, table).toBe(0);
     }
     expect(await rows(db, `select table_name from information_schema.role_table_grants
