@@ -37,10 +37,24 @@ export default function SpaBookingWidget() {
     }
   };
 
+  // Phones: wait until the guest scrolls past the top banner. There it would only
+  // cover the slide dots, and the banner already offers Reserve Slot / Schedule Massage.
+  const [nearTop, setNearTop] = useState(true);
+  useEffect(() => {
+    const update = () => setNearTop(window.scrollY < window.innerHeight * 0.6);
+    update();
+    window.addEventListener('scroll', update, { passive: true });
+    window.addEventListener('resize', update);
+    return () => {
+      window.removeEventListener('scroll', update);
+      window.removeEventListener('resize', update);
+    };
+  }, []);
+
   if (dismissed || bookingInView) return null;
 
   return (
-    <div className="fixed bottom-5 left-5 z-50 sm:bottom-6 sm:left-6">
+    <div className={`fixed bottom-5 left-5 z-50 sm:bottom-6 sm:left-6 ${nearTop ? 'max-sm:hidden' : ''}`}>
       <div className="relative">
         <button
           onClick={handleDismiss}

@@ -57,6 +57,7 @@ import VideoGalleryPreview from './videos/VideoGalleryPreview';
 import { PHONE_DISPLAY, PHONE_E164, whatsappUrl } from './config/business';
 import WhatsAppEnquiryLink from './components/WhatsAppEnquiryLink';
 import SpaBookingWidget from './components/SpaBookingWidget';
+import SiteMenu, { type SiteMenuLink } from './components/SiteMenu';
 import BookingSection from './booking/components/LazyBookingSection';
 import { BOOKING_HEADING_ID, goToBooking } from './booking/navigation';
 import { useSiteCatalog } from './booking/useSiteCatalog';
@@ -76,9 +77,21 @@ const teamData: TeamMember[] = [
   { id: 'therapist-4', name: 'Wellness Therapist', role: 'Full Body Detox & Reflexology', imageUrl: '/assets/images/team/therapist-4.jpg' },
 ];
 
+const NAV_LINKS: SiteMenuLink[] = [
+  { href: '#about', label: 'About Us' },
+  { href: '#services', label: 'Services' },
+  { href: '#packages', label: 'Packages' },
+  { href: '#gallery', label: 'Gallery' },
+  { href: '#video-gallery', label: 'Video Gallery' },
+  { href: '#therapists', label: 'Our Therapists' },
+  { href: '#booking', label: 'Book Online', emphasis: true },
+  { href: '#faqs', label: 'FAQs' },
+];
+
 export default function App() {
   // Navigation & Scroll State
   const [isScrolled, setIsScrolled] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [activeSection, setActiveTab] = useState<'all' | 'relaxation' | 'therapeutic' | 'sensory'>('all');
 
   // Hero Slideshow State - cycles between the sanctuary photo and two featured campaign creatives
@@ -202,10 +215,10 @@ export default function App() {
       {/* Header / Premium Floating Navbar */}
       <header 
         id="masthead"
-        className={`fixed top-0 left-0 w-full z-40 transition-all duration-500 ${
-          isScrolled 
-            ? 'bg-spa-charcoal/95 backdrop-blur-md border-b border-spa-charcoal/20 py-4 shadow-lg'
-            : 'bg-gradient-to-b from-spa-berry/50 to-transparent py-6'
+        className={`fixed top-0 left-0 w-full z-40 transition-all duration-500 ${isScrolled ? 'py-4' : 'py-6'} ${
+          isScrolled || isMenuOpen
+            ? 'bg-spa-charcoal/95 backdrop-blur-md border-b border-spa-charcoal/20 shadow-lg'
+            : 'bg-gradient-to-b from-spa-berry/50 to-transparent'
         }`}
       >
         <div className="max-w-7xl mx-auto px-6 flex items-center justify-between">
@@ -217,19 +230,15 @@ export default function App() {
             />
           </a>
 
-          {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center gap-4 lg:gap-8 xl:gap-12 whitespace-nowrap [text-shadow:0_1px_3px_rgba(0,0,0,0.35)]">
-            <a href="#about" className="text-xs uppercase tracking-widest text-spa-linen/90 hover:text-spa-gold transition-colors duration-200">About Us</a>
-            <a href="#services" className="text-xs uppercase tracking-widest text-spa-linen/90 hover:text-spa-gold transition-colors duration-200">Services</a>
-            <a href="#packages" className="text-xs uppercase tracking-widest text-spa-linen/90 hover:text-spa-gold transition-colors duration-200">Packages</a>
-            <a href="#gallery" className="text-xs uppercase tracking-widest text-spa-linen/90 hover:text-spa-gold transition-colors duration-200">Gallery</a>
-            <a href="#video-gallery" className="text-xs uppercase tracking-widest text-spa-linen/90 hover:text-spa-gold transition-colors duration-200">Video Gallery</a>
-            <a href="#therapists" className="text-xs uppercase tracking-widest text-spa-linen/90 hover:text-spa-gold transition-colors duration-200">Our Therapists</a>
-            <a href="#booking" className="text-xs uppercase tracking-widest text-spa-linen/90 hover:text-spa-gold transition-colors duration-200 font-medium">Book Online</a>
-            <a href="#faqs" className="text-xs uppercase tracking-widest text-spa-linen/90 hover:text-spa-gold transition-colors duration-200">FAQs</a>
+          {/* Desktop Navigation - the full row needs 1280px; narrower screens use the Menu button */}
+          <nav className="hidden xl:flex items-center gap-12 whitespace-nowrap [text-shadow:0_1px_3px_rgba(0,0,0,0.35)]">
+            {NAV_LINKS.map((link) => (
+              <a key={link.href} href={link.href} className={`text-xs uppercase tracking-widest text-spa-linen/90 hover:text-spa-gold transition-colors duration-200 ${link.emphasis ? 'font-medium' : ''}`}>{link.label}</a>
+            ))}
           </nav>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <SiteMenu links={NAV_LINKS} open={isMenuOpen} onOpenChange={setIsMenuOpen} />
             <a 
               href="#booking"
               className="bg-spa-gold hover:bg-spa-gold-dark text-spa-charcoal hover:text-white px-5 py-2.5 text-xs font-semibold uppercase tracking-widest transition-all duration-300 rounded shadow-sm hover:shadow-lg"
@@ -241,12 +250,14 @@ export default function App() {
       </header>
 
       {/* Hero Section - a two-slide slideshow: the sanctuary photo, then the featured campaign */}
-      <section className="relative h-[95vh] w-full flex items-center justify-center overflow-hidden bg-spa-charcoal">
+      <section className="relative min-h-[95vh] w-full overflow-hidden bg-spa-charcoal">
 
-        {/* Slide 1: Full-bleed sanctuary photo with the primary hero copy */}
+        {/* Slide 1: Full-bleed sanctuary photo with the primary hero copy. It stays in the
+            page flow so the hero grows on short phones instead of clipping its copy; the
+            other slides lie over it. */}
         <div
           aria-hidden={heroSlide !== 0}
-          className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
+          className={`relative w-full min-h-[95vh] flex items-center justify-center transition-opacity duration-1000 ease-in-out ${
             heroSlide === 0 ? 'opacity-100 z-[1]' : 'opacity-0 z-0 pointer-events-none'
           }`}
         >
@@ -262,13 +273,15 @@ export default function App() {
           <div className="hero-top-scrim" aria-hidden="true"></div>
           <div className="absolute bottom-0 left-0 w-full h-32 bg-gradient-to-t from-spa-cream to-transparent"></div>
 
-          <div className="relative z-10 h-full flex items-center justify-center">
-            <div className="max-w-5xl mx-auto px-6 text-center text-spa-cream pt-12">
+          <div className="relative z-10 w-full">
+            {/* Top padding clears the logo; bottom padding the slide dots (phones) or the
+                "Scroll to Begin" cue (larger screens). On tall screens the copy sits where it always did. */}
+            <div className="max-w-5xl mx-auto px-6 text-center text-spa-cream pt-28 pb-8 md:pt-32 md:pb-20">
               <motion.div
                 initial={{ opacity: 0, y: 40 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 1.2, ease: "easeOut" }}
-                className="space-y-6"
+                className="space-y-4 sm:space-y-6"
               >
                 <span className="inline-flex items-center gap-2 bg-white/10 border border-spa-gold/50 text-spa-gold text-[10px] sm:text-xs uppercase tracking-[0.2em] font-semibold px-4 py-2 rounded-full backdrop-blur-sm">
                   <BadgePercent className="w-3.5 h-3.5" />
@@ -288,7 +301,7 @@ export default function App() {
                   SMM (Sweet Mobile Massage and Spa) redefines boutique relaxation. Experience pristine walk-in treatments at our safe, secure Lagos sanctuary, or have our qualified master therapists bring the entire spa ritual directly to your doorstep.
                 </p>
 
-                <div className="pt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
+                <div className="pt-5 sm:pt-8 flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4">
                   <a
                     href="#booking"
                     className="w-full sm:w-auto bg-spa-gold hover:bg-spa-gold-dark text-spa-charcoal hover:text-white px-8 py-4 text-xs font-bold uppercase tracking-widest transition-all duration-300 rounded shadow-xl"
