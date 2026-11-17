@@ -18,8 +18,11 @@ SMM is a React 19 + Vite + Tailwind site backed by Supabase (Postgres, Auth, Row
 | Payments, refunds, staff accounts, settings, activity log | Done (Phase 5d). See "Payments, refunds, staff and audit". |
 | Phase 5 integration and security review | Done (Phase 5e). See "Phase 5e integration" and [PHASE-5-SECURITY-REVIEW.md](PHASE-5-SECURITY-REVIEW.md). |
 | Staff app (`/staff/`) | Sign-in, password links, role-based navigation, own account (5a); every Phase 5 screen above. |
-| Website content security | Done (Phase 6a): content changes only through audited staff functions, minimum public columns, uploads through the `staff-media` function. See "Website content (Phase 6a)". No staff screens yet (6b); the public site still shows its static content (6c). |
-| Intake, gold-label contrast, production runbook | Phase 6b-6f, not started. Analytics and notifications are out of scope. |
+| Website content security | Done (Phase 6a): content changes only through audited staff functions, minimum public columns, uploads through the `staff-media` function. See "Website content (Phase 6a)". |
+| Staff Website section | Done (Phase 6b): contact details, FAQs, gallery with uploads, testimonials, announcements, homepage heading, picture library (`src/staff/screens/WebsiteScreen.tsx`). |
+| Public site content and accessibility | Done (Phase 6c): the site reads the owner's content (`src/content/useSiteContent.ts`) and falls back to its built-in content; reviews only when real ones are published; WCAG AA contrast (shared `Eyebrow` label, `spa-gold-dark` and `spa-clay-text`). |
+| Phase 6 integration and security review | Done (Phase 6e). See [PHASE-6-SECURITY-REVIEW.md](PHASE-6-SECURITY-REVIEW.md). |
+| Launch | Runbook, hosted check and tested rollback and clean-up scripts (Phase 6f): [LAUNCH-RUNBOOK.md](LAUNCH-RUNBOOK.md), `scripts/hosted-check.mjs`, `scripts/apply-migrations.mjs`, `supabase/revert/`, `supabase/snippets/`. Intake (6d) is deferred until after launch. Analytics and notifications are out of scope. |
 
 ## Quick start
 

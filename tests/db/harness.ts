@@ -12,17 +12,25 @@ export type Role = 'anon' | 'authenticated' | 'service_role';
  * Builds a fresh in-memory Postgres with the real migrations applied on top of
  * a small Supabase shim (auth schema, API roles, storage tables).
  */
-export async function createTestDb({ seed = true } = {}): Promise<PGlite> {
+export async function createTestDb({ seed = true, until }: { seed?: boolean; until?: string } = {}): Promise<PGlite> {
   const db = new PGlite({ extensions: { btree_gist } });
   await db.exec('set search_path = public, extensions;');
   await db.exec(readFileSync(path.join(__dirname, 'supabase-shim.sql'), 'utf8'));
-  for (const file of readdirSync(migrationsDir).sort()) {
-    await db.exec(readFileSync(path.join(migrationsDir, file), 'utf8'));
-  }
+  await applyMigrations(db, { until });
   if (seed) {
     await db.exec(readFileSync(path.join(root, 'supabase/seed.sql'), 'utf8'));
   }
   return db;
+}
+
+/** Applies the migrations in order: all, those up to `until` (a version prefix), or those after `after`. */
+export async function applyMigrations(db: PGlite, { until, after }: { until?: string; after?: string } = {}): Promise<string[]> {
+  const files = readdirSync(migrationsDir).sort()
+    .filter((f) => (until === undefined || f.slice(0, 14) <= until) && (after === undefined || f.slice(0, 14) > after));
+  for (const file of files) {
+    await db.exec(readFileSync(path.join(migrationsDir, file), 'utf8'));
+  }
+  return files;
 }
 
 /** Runs `fn` as a Supabase API role, optionally as a specific signed-in user. */

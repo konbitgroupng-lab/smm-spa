@@ -15,7 +15,9 @@
     "db:stop": "supabase stop",
     "db:reset": "supabase db reset",
     "db:status": "supabase status",
-    "db:seed-users": "node --env-file=.env.local scripts/seed-demo-users.mjs"
+    "db:seed-users": "node --env-file=.env.local scripts/seed-demo-users.mjs",
+    "db:migrations": "node --env-file=.env.local scripts/apply-migrations.mjs",
+    "check:hosted": "node --env-file=.env.local scripts/hosted-check.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.117.2",
