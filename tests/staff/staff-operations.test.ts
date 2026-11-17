@@ -194,6 +194,8 @@ describe('payments, refunds and staff end to end (5d)', () => {
     const { profileId } = await owner.inviteStaff('invited.e2e@example.com', 'Invited Person');
     const list = await owner.staffList();
     expect(list.staff.find((s) => s.id === profileId)).toMatchObject({ email: 'invited.e2e@example.com', fullName: 'Invited Person', isActive: false });
+    // The function records the invitation as the owner (owner_record_invitation, called with named arguments).
+    expect((await one(db, `select count(*)::int as n from audit_log where action = 'staff.invited' and entity_id = $1`, [profileId])).n).toBe(1);
     expect((await failure(owner.inviteStaff('invited.e2e@example.com', 'Invited Person'))).code).toBe('already_registered');
     expect((await failure(owner.inviteStaff('not an email', 'Someone'))).code).toBe('invalid_invitation');
     const admin = await signedIn('admin@example.com');

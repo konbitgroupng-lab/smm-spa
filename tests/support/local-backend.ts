@@ -42,7 +42,7 @@ async function callAs(db: PGlite, authorization: string | undefined, fn: string,
   const names = Object.keys(args).filter((n) => /^[a-z_]+$/.test(n));
   try {
     const result = await asRequester(db, authorization, () =>
-      db.query(`select * from public.${fn}(${names.map((n, i) => ` => $${i + 1}`).join(', ')})`, names.map((n) => (args as any)[n])),
+      db.query(`select * from public.${fn}(${names.map((n, i) => `${n} => $${i + 1}`).join(', ')})`, names.map((n) => (args as any)[n])),
     );
     const rows = result.rows as any[];
     const scalar = result.fields.length === 1 && result.fields[0].name === fn;
