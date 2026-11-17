@@ -5,11 +5,13 @@ import { useLoad } from '../lib/useLoad';
 import { href } from '../router';
 import { LinkAsButton, LoadState, PageTitle, Panel } from '../ui';
 import { AppointmentCard } from './common';
+import { TransfersPanel } from './TransfersPanel';
 
 /** Owner/admin home: today at a glance. */
 export function HomeScreen({ ops }: { ops: StaffOps }) {
   const today = localToday();
   const dash = useLoad(() => ops.dashboard(), [ops]);
+  const transfers = useLoad(() => ops.transfers(), [ops]);
   const list = useLoad(() => {
     const r = dateRange(today, today);
     return ops.appointments(r.from, r.to);
@@ -49,6 +51,11 @@ export function HomeScreen({ ops }: { ops: StaffOps }) {
           );
         }}
       </LoadState>
+      {transfers.data && transfers.data.length > 0 && (
+        <div className="mb-6">
+          <TransfersPanel ops={ops} transfers={transfers.data} reload={async () => { await transfers.reload(); await list.reload(); }} />
+        </div>
+      )}
       <Panel title="Today's appointments">
         <LoadState ready={!!list.data} error={list.error} onRetry={list.reload}>
           {() =>

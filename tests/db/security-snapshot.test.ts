@@ -34,13 +34,17 @@ const STAFF_FUNCTIONS = [
   'staff_content', 'staff_delete_content', 'staff_register_media', 'staff_remove_media', 'staff_reorder_content',
   'staff_save_announcement', 'staff_save_faq', 'staff_save_gallery_item', 'staff_save_site_content', 'staff_save_testimonial',
   'staff_set_content_published', 'staff_update_media',
+  // Guest bank transfers: the transfer list, confirming one, the owner's account details.
+  'owner_update_transfer_settings', 'staff_confirm_transfer', 'staff_transfers',
 ];
 const SERVER_ONLY = [
   'attach_customer_to_hold', 'begin_hold_payment', 'consume_rate_limit', 'create_booking_hold', 'finish_payment_event',
   'get_payment_outcome', 'log_payment_event', 'mark_payment_init_failed', 'mock_provider_complete', 'mock_provider_get',
   'mock_provider_initialize', 'record_payment_result', 'record_refund_event', 'release_booking_hold',
   'release_expired_booking_holds', 'request_booking_hold', 'run_booking_maintenance', 'set_payment_checkout',
-];
+  // Guest bank transfers.
+  'get_transfer_booking', 'request_transfer_booking',
+].sort();
 
 describe('what each role can call', () => {
   it('guests: only the availability search', async () => {

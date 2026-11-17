@@ -12,8 +12,8 @@ import { mediaUrl, type ContentOps, type SiteBlock, type SiteContent } from './c
 
 export type AppointmentStatus = 'pending_payment' | 'confirmed' | 'completed' | 'cancelled' | 'no_show';
 export type BookingSource = 'online' | 'phone' | 'whatsapp';
-export type Settlement = 'online_payment' | 'pay_at_venue' | 'paid_offline';
-export type PaymentState = 'paid' | 'deposit_paid' | 'refund_due' | 'refunded' | 'unpaid' | 'to_collect' | 'paid_offline';
+export type Settlement = 'online_payment' | 'pay_at_venue' | 'paid_offline' | 'bank_transfer';
+export type PaymentState = 'paid' | 'deposit_paid' | 'refund_due' | 'refunded' | 'unpaid' | 'to_collect' | 'paid_offline' | 'awaiting_transfer' | 'paid_transfer';
 export type LocationType = 'sanctuary' | 'mobile';
 
 export interface AppointmentRow {
@@ -458,6 +458,27 @@ export interface Settings {
   depositPercent: number;
   allowDemoPayments: boolean;
   updatedAt: string;
+  /** Guests may pay by direct bank transfer, into this account. */
+  transferEnabled: boolean;
+  bankName: string | null;
+  bankAccountNumber: string | null;
+  bankAccountName: string | null;
+  transferHoldMinutes: number;
+}
+
+/** A guest booking waiting for its bank transfer to be confirmed. */
+export interface TransferAwaiting {
+  appointmentId: string;
+  reference: string;
+  startsAt: string;
+  serviceName: string;
+  contactName: string;
+  contactPhone: string | null;
+  amountMinor: number;
+  bookingTotalMinor: number;
+  currency: string;
+  dueAt: string;
+  updatedAt: string;
 }
 
 export interface StaffOps extends ContentOps {
@@ -508,6 +529,9 @@ export interface StaffOps extends ContentOps {
   setStaffActive(profileId: string, active: boolean, reason: string, version: string): Promise<void>;
   linkTherapist(therapistId: string, profileId: string | null, reason: string, version: string): Promise<void>;
   inviteStaff(email: string, fullName: string): Promise<{ profileId: string }>;
+  transfers(): Promise<TransferAwaiting[]>;
+  confirmTransfer(appointmentId: string, version: string, note: string | null): Promise<void>;
+  updateTransferSettings(version: string, input: { enabled: boolean; bankName: string; accountNumber: string; accountName: string }, reason: string): Promise<void>;
 }
 
 const mapPaymentRow = (r: any): PaymentRow => ({
@@ -888,6 +912,8 @@ export function createSupabaseOps(client: SupabaseClient): StaffOps {
       return {
         businessName: s.business_name, timezone: s.timezone, currency: s.currency, onlinePaymentEnabled: s.online_payment_enabled,
         paymentMode: s.payment_mode, depositPercent: s.deposit_percent, allowDemoPayments: s.allow_demo_payments, updatedAt: s.updated_at,
+        transferEnabled: s.transfer_enabled === true, bankName: s.bank_name ?? null, bankAccountNumber: s.bank_account_number ?? null,
+        bankAccountName: s.bank_account_name ?? null, transferHoldMinutes: s.transfer_hold_minutes ?? 120,
       };
     },
 
@@ -929,6 +955,28 @@ export function createSupabaseOps(client: SupabaseClient): StaffOps {
       const { data, error } = await client.functions.invoke('staff-invite', { body: { email, fullName } });
       if (error) throw await functionError(error, 'invite_failed');
       return { profileId: data.profileId };
+    },
+
+    // Guest bank transfers
+
+    async transfers() {
+      const rows = await call<any[]>('staff_transfers');
+      return rows.map((t) => ({
+        appointmentId: t.appointment_id, reference: t.reference, startsAt: t.starts_at, serviceName: t.service_name,
+        contactName: t.contact_name, contactPhone: t.contact_phone, amountMinor: Number(t.amount_minor),
+        bookingTotalMinor: Number(t.booking_total_minor), currency: t.currency, dueAt: t.due_at, updatedAt: t.updated_at,
+      }));
+    },
+
+    async confirmTransfer(appointmentId, version, note) {
+      await call('staff_confirm_transfer', { p_appointment_id: appointmentId, p_expected_updated_at: version, p_note: note });
+    },
+
+    async updateTransferSettings(version, t, reason) {
+      await call('owner_update_transfer_settings', {
+        p_expected_updated_at: version, p_reason: reason, p_enabled: t.enabled,
+        p_bank_name: t.bankName, p_account_number: t.accountNumber, p_account_name: t.accountName,
+      });
     },
 
     // Website content (Phase 6b)

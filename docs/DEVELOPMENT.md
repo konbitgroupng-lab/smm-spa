@@ -22,6 +22,7 @@ SMM is a React 19 + Vite + Tailwind site backed by Supabase (Postgres, Auth, Row
 | Staff Website section | Done (Phase 6b): contact details, FAQs, gallery with uploads, testimonials, announcements, homepage heading, picture library (`src/staff/screens/WebsiteScreen.tsx`). |
 | Public site content and accessibility | Done (Phase 6c): the site reads the owner's content (`src/content/useSiteContent.ts`) and falls back to its built-in content; reviews only when real ones are published; WCAG AA contrast (shared `Eyebrow` label, `spa-gold-dark` and `spa-clay-text`). |
 | Phase 6 integration and security review | Done (Phase 6e). See [PHASE-6-SECURITY-REVIEW.md](PHASE-6-SECURITY-REVIEW.md). |
+| Direct bank transfer | Done (after 6f, at the user's request): guests choose "Pay by bank transfer" at the last booking step; the time is reserved for 2 hours; staff confirm under Today › Bank transfers to check; the owner sets the account in Settings. Works with online payment switched off. See the addendum in [PHASE-6-SECURITY-REVIEW.md](PHASE-6-SECURITY-REVIEW.md). |
 | Launch | Runbook, hosted check and tested rollback and clean-up scripts (Phase 6f): [LAUNCH-RUNBOOK.md](LAUNCH-RUNBOOK.md), `scripts/hosted-check.mjs`, `scripts/apply-migrations.mjs`, `supabase/revert/`, `supabase/snippets/`. Intake (6d) is deferred until after launch. Analytics and notifications are out of scope. |
 
 ## Quick start

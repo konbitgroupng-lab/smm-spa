@@ -141,6 +141,8 @@ const MESSAGES: Record<string, string> = {
   too_large: 'The picture is too large. The limit is 5 MB.',
   upload_failed: 'The picture could not be uploaded. Try again.',
   server_error: 'Something went wrong on the server. Try again.',
+  // Guest bank transfers
+  invalid_transfer_settings: 'Check the bank details: the bank and account name, and an account number of digits only. All three are needed to offer bank transfer.',
 };
 
 /** Why a time is outside the booking rules (schedule_rule / slot_unavailable details). */

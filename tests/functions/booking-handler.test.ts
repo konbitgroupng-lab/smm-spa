@@ -156,4 +156,37 @@ describe('booking endpoint', () => {
     });
     expect(foreign.headers.get('access-control-allow-origin')).toBeNull();
   });
+
+  it('bank transfer: turns the hold into a booking awaiting payment; the guest page reads it by token only', async () => {
+    const d = deps();
+    const hold = (await (await post({ action: 'create_hold', serviceId: swedish, startsAt: at(upcoming(TUE, 2), '14:00').toISOString() }, d)).json()).hold;
+    await post({ action: 'attach_customer', holdToken: hold.token, fullName: 'Transfer Guest', email: 'transfer@example.com', phone: '+2348000000000' }, d);
+
+    const res = await post({ action: 'request_transfer', holdToken: hold.token, notes: 'Ground floor please' }, d);
+    expect(res.status).toBe(200);
+    const { transfer } = await res.json();
+    expect(Object.keys(transfer).sort()).toEqual(['amountMinor', 'bank', 'bookingTotalMinor', 'currency', 'dueAt', 'endsAt', 'expired', 'reference', 'startsAt', 'status', 'token']);
+    expect(transfer).toMatchObject({ status: 'awaiting', amountMinor: 4_000_000, bank: { accountNumber: '0013819712' } });
+
+    const status = await (await post({ action: 'transfer_status', token: transfer.token }, d)).json();
+    expect(status.transfer).toMatchObject({ reference: transfer.reference, status: 'awaiting' });
+    const missing = await post({ action: 'transfer_status', token: '00000000-0000-4000-8000-000000000000' }, d);
+    expect(missing.status).toBe(404);
+    expect(await missing.json()).toEqual({ error: 'transfer_not_found' });
+    // A reference is not a token.
+    expect((await post({ action: 'transfer_status', token: transfer.reference }, d)).status).toBe(400);
+    // The same hold cannot be used again.
+    expect((await post({ action: 'request_transfer', holdToken: hold.token }, d)).status).toBe(410);
+  });
+
+  it('bank transfer: switched off is reported as unavailable', async () => {
+    await db.query(`update business_settings set transfer_enabled = false`);
+    const d = deps();
+    const hold = (await (await post({ action: 'create_hold', serviceId: swedish, startsAt: at(upcoming(TUE, 2), '16:00').toISOString() }, d)).json()).hold;
+    await post({ action: 'attach_customer', holdToken: hold.token, fullName: 'Transfer Guest', email: 'off@example.com', phone: '+2348000000000' }, d);
+    const res = await post({ action: 'request_transfer', holdToken: hold.token }, d);
+    await db.query(`update business_settings set transfer_enabled = true`);
+    expect(res.status).toBe(503);
+    expect(await res.json()).toEqual({ error: 'transfers_disabled' });
+  });
 });

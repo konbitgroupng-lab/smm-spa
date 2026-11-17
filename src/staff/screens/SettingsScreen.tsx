@@ -62,6 +62,46 @@ function SettingsPanels({ ops, s, role, reload }: { ops: StaffOps; s: Settings; 
           <p>This safety switch is set by the developer in the database and cannot be changed from the staff app. Payment provider keys are never shown or entered here.</p>
         </div>
       </Panel>
+
+      <TransferSettings ops={ops} s={s} role={role} reload={reload} />
     </div>
+  );
+}
+
+/** Direct bank transfer: the account guests pay into (owner changes it; admins see it). */
+function TransferSettings({ ops, s, role, reload }: { ops: StaffOps; s: Settings; role: StaffRole; reload: () => Promise<void> }) {
+  const [enabled, setEnabled] = useState(s.transferEnabled);
+  const [bank, setBank] = useState(s.bankName ?? '');
+  const [number, setNumber] = useState(s.bankAccountNumber ?? '');
+  const [holder, setHolder] = useState(s.bankAccountName ?? '');
+  const hours = s.transferHoldMinutes % 60 === 0 ? `${s.transferHoldMinutes / 60} hours` : `${s.transferHoldMinutes} minutes`;
+  return (
+    <Panel title="Bank transfer">
+      <p className="text-sm mb-3">
+        Guests can choose to pay by transfer into this account. Their time is reserved for {hours}; confirm each transfer under
+        Today › Bank transfers to check. Unconfirmed ones are cancelled automatically.
+      </p>
+      {role === 'owner' ? (
+        <ChangeForm key={s.updatedAt} reasonLabel="Reason" submitLabel="Save bank transfer details" onSubmit={async (opts) => {
+          await ops.updateTransferSettings(s.updatedAt, { enabled, bankName: bank, accountNumber: number, accountName: holder }, opts.reason ?? '');
+          await reload();
+          return 'Bank transfer details saved.';
+        }}>
+          <CheckboxField label="Offer bank transfer to guests" checked={enabled} onChange={setEnabled}
+            hint="Shown at the last booking step, next to online payment (or on its own when online payment is off)." />
+          <Field label="Bank" value={bank} onChange={setBank} required={enabled} autoComplete="off" />
+          <Field label="Account number" value={number} onChange={setNumber} required={enabled} autoComplete="off" hint="Digits only, for example 0123456789." />
+          <Field label="Account name" value={holder} onChange={setHolder} required={enabled} autoComplete="off" hint="Exactly as the bank shows it to the guest." />
+        </ChangeForm>
+      ) : (
+        <dl className="text-sm grid grid-cols-[10rem_1fr] gap-y-1">
+          <dt className="text-spa-clay">Bank transfer</dt><dd>{s.transferEnabled ? 'Offered' : 'Not offered'}</dd>
+          <dt className="text-spa-clay">Bank</dt><dd>{s.bankName ?? '—'}</dd>
+          <dt className="text-spa-clay">Account number</dt><dd>{s.bankAccountNumber ?? '—'}</dd>
+          <dt className="text-spa-clay">Account name</dt><dd>{s.bankAccountName ?? '—'}</dd>
+          <dd className="col-span-2 text-spa-clay mt-2">Only the owner can change the bank details.</dd>
+        </dl>
+      )}
+    </Panel>
   );
 }

@@ -9,6 +9,7 @@ import { resolveView } from './routes';
 const BookingConfirmationPage = lazy(() => import('./booking/BookingConfirmationPage'));
 const DemoCheckoutPage = lazy(() => import('./prototype/DemoCheckoutPage'));
 const VideoGalleryPage = lazy(() => import('./videos/VideoGalleryPage'));
+const TransferBookingPage = lazy(() => import('./booking/TransferBookingPage'));
 
 export default function AppRouter({ search }: { search: string }) {
   const view = resolveView(search);
@@ -31,6 +32,7 @@ export default function AppRouter({ search }: { search: string }) {
         {view.page === 'payment-return' && <BookingConfirmationPage reference={view.reference} />}
         {view.page === 'demo-checkout' && <DemoCheckoutPage reference={view.reference} />}
         {view.page === 'videos' && <VideoGalleryPage videoId={view.videoId} />}
+        {view.page === 'transfer' && <TransferBookingPage token={view.token} />}
       </Suspense>
       {concierge}
     </>

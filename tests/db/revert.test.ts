@@ -3,6 +3,7 @@ import path from 'node:path';
 import type { PGlite } from '@electric-sql/pglite';
 import { describe, expect, it } from 'vitest';
 import { applyMigrations, asRole, createTestDb, one, rows } from './harness';
+import { at, upcoming, WED } from './dates';
 
 // Phase 6f: the rollback scripts in supabase/revert/ undo the Phase 6
 // migrations exactly. A database rolled back from the full build must match
@@ -10,12 +11,18 @@ import { applyMigrations, asRole, createTestDb, one, rows } from './harness';
 
 const PHASE_5_LAST = '20261015000100';
 const revertDir = path.resolve(__dirname, '../../supabase/revert');
-const DOWN = ['20261016000200_content_functions.down.sql', '20261016000100_content_security.down.sql'];
+// Newest first, as the runbook says.
+const DOWN = ['20261019000200_bank_transfer.down.sql', '20261016000200_content_functions.down.sql', '20261016000100_content_security.down.sql'];
 
-async function rollBack(db: PGlite) {
+async function rollBack(db: PGlite, files = DOWN) {
   await db.exec('begin');
-  for (const file of DOWN) await db.exec(readFileSync(path.join(revertDir, file), 'utf8'));
-  await db.exec('commit');
+  try {
+    for (const file of files) await db.exec(readFileSync(path.join(revertDir, file), 'utf8'));
+    await db.exec('commit');
+  } catch (err) {
+    await db.exec('rollback');
+    throw err;
+  }
 }
 
 /** Everything about the schema that decides who can do what. */
@@ -74,8 +81,35 @@ describe('rolling back Phase 6', () => {
 
     // Applying the Phase 6 migrations again restores Phase 6 exactly.
     const reapplied = await applyMigrations(full, { after: PHASE_5_LAST });
-    expect(reapplied).toEqual(['20261016000100_content_security.sql', '20261016000200_content_functions.sql']);
+    expect(reapplied).toEqual([
+      '20261016000100_content_security.sql', '20261016000200_content_functions.sql',
+      '20261019000100_bank_transfer_settlement.sql', '20261019000200_bank_transfer.sql',
+    ]);
     expect(await snapshot(full)).toEqual(withPhase6);
     await full.close();
+  });
+
+  it('the bank transfer rollback alone returns to the 6a schema, and refuses while transfer bookings exist', async () => {
+    const before = await createTestDb({ seed: false, until: '20261016000200' });
+    const expected = await snapshot(before);
+    await before.close();
+
+    const db = await createTestDb();
+    const swedish = (await one(db, `select id from services where slug = 'swedish'`)).id;
+    const start = at(upcoming(WED, 1), '10:00');
+    const hold = await asRole(db, 'service_role', null, () => one(db, `select * from request_booking_hold($1, $2, null)`, [swedish, start.toISOString()]));
+    await asRole(db, 'service_role', null, () => db.query(`select attach_customer_to_hold($1, 'Guest', 'g@example.com', '+2348000000000')`, [hold.hold_token]));
+    await asRole(db, 'service_role', null, () => db.query(`select request_transfer_booking($1)`, [hold.hold_token]));
+
+    const only = ['20261019000200_bank_transfer.down.sql'];
+    await expect(rollBack(db, only)).rejects.toThrow(/Bookings paid by bank transfer exist/);
+    await db.query(`delete from appointments where settlement = 'bank_transfer'`);
+    await rollBack(db, only);
+    const after = await snapshot(db);
+    // The seeded database has the demo rows' personal columns in common; compare the schema parts.
+    for (const part of ['policies', 'tableGrants', 'columnGrants', 'columns', 'functions', 'triggers', 'personalColumns'] as const) {
+      expect(after[part], part).toEqual(expected[part]);
+    }
+    await db.close();
   });
 });

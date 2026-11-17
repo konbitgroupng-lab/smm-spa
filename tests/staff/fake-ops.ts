@@ -1,7 +1,7 @@
 import { vi } from 'vitest';
 import type {
   AgendaItem, AppointmentDetail, AppointmentRow, BookingOptions, Catalogue, ConflictRow, CustomerDetail, CustomerRow, Dashboard,
-  PaymentDetail, PaymentRow, ScheduleOverview, Settings, StaffList, StaffOps, AuditEntry,
+  PaymentDetail, PaymentRow, ScheduleOverview, Settings, StaffList, StaffOps, AuditEntry, TransferAwaiting,
 } from '../../src/staff/lib/ops';
 import type { SiteContent } from '../../src/staff/lib/content';
 
@@ -160,7 +160,15 @@ export function paymentDetail(overrides: Partial<PaymentDetail['payment']> = {})
 export const SETTINGS: Settings = {
   businessName: 'SMM', timezone: 'Africa/Lagos', currency: 'NGN', onlinePaymentEnabled: true, paymentMode: 'full', depositPercent: 50,
   allowDemoPayments: true, updatedAt: V1,
+  transferEnabled: true, bankName: 'Standard Chartered Bank', bankAccountNumber: '0013819712',
+  bankAccountName: 'Sweet Mobile Massage and Spa Limited', transferHoldMinutes: 120,
 };
+
+export const TRANSFERS: TransferAwaiting[] = [{
+  appointmentId: 'appt-t1', reference: 'SMM-TTTT1111', startsAt: '2030-10-14T09:00:00Z', serviceName: 'Swedish Massage',
+  contactName: 'Bisi Transfer', contactPhone: '+2348030000002', amountMinor: 4000000, bookingTotalMinor: 4000000, currency: 'NGN',
+  dueAt: '2030-10-13T11:00:00Z', updatedAt: V1,
+}];
 
 export const STAFF_LIST: StaffList = {
   staff: [
@@ -269,5 +277,8 @@ export function fakeOps(): { [K in keyof StaffOps]: ReturnType<typeof vi.fn> } &
     uploadMedia: vi.fn(async () => ({ id: 'm-new' })),
     updateMedia: vi.fn(async () => {}),
     removeMedia: vi.fn(async () => {}),
+    transfers: vi.fn(async () => TRANSFERS),
+    confirmTransfer: vi.fn(async () => {}),
+    updateTransferSettings: vi.fn(async () => {}),
   } as any;
 }

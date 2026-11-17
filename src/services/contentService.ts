@@ -112,6 +112,10 @@ export interface BusinessSettings {
   timezone: string;
   currency: string;
   onlinePaymentEnabled: boolean;
+  /** Guests may also pay by direct bank transfer (the owner confirms it). */
+  transferEnabled: boolean;
+  /** How long a time stays reserved while a transfer is checked. */
+  transferHoldMinutes: number;
   paymentMode: 'deposit' | 'full';
   depositPercent: number;
   holdMinutes: number;
@@ -134,6 +138,8 @@ export async function getBusinessSettings(): Promise<BusinessSettings | null> {
     timezone: data.timezone,
     currency: data.currency,
     onlinePaymentEnabled: data.online_payment_enabled,
+    transferEnabled: data.transfer_enabled === true,
+    transferHoldMinutes: data.transfer_hold_minutes ?? 120,
     paymentMode: data.payment_mode,
     depositPercent: data.deposit_percent,
     holdMinutes: data.hold_minutes,

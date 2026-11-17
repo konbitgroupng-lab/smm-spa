@@ -5,7 +5,7 @@ import { createSupabaseBackend, messageFor, StaffError } from '../../src/staff/l
 import { STAFF_AUTH_OPTIONS } from '../../src/staff/lib/client';
 import { conflictsOf, createSupabaseOps, type StaffOps } from '../../src/staff/lib/ops';
 import { dateRange } from '../../src/staff/lib/time';
-import { createStaff, createTestDb, one } from '../db/harness';
+import { asRole, createStaff, createTestDb, one } from '../db/harness';
 import { at, upcoming, WED } from '../db/dates';
 import { startLocalBackend } from '../support/local-backend';
 
@@ -287,5 +287,32 @@ describe('website content end to end (6b)', () => {
     const therapist = await signedIn('therapist@example.com');
     expect((await failure(therapist.content())).code).toBe('not_authorized');
     expect((await failure(therapist.saveFaq(null, null, { question: 'Sneaky question?', answer: ['No.'] }))).code).toBe('not_authorized');
+  });
+});
+
+describe('guest bank transfers end to end', () => {
+  it('admin lists and confirms a transfer through the real functions; the owner changes the account; therapists are refused', async () => {
+    const swedish = (await one(db, `select id from services where slug = 'swedish'`)).id;
+    const start = at(upcoming(WED, 3), '15:00').toISOString();
+    const service = <T,>(fn: () => Promise<T>) => asRole(db, 'service_role', null, fn);
+    const hold = await service(() => one(db, `select * from request_booking_hold($1, $2, null)`, [swedish, start]));
+    await service(() => db.query(`select attach_customer_to_hold($1, 'Ops Transfer', 'ops.transfer@example.com', '+2348000000000')`, [hold.hold_token]));
+    const view = (await service(() => one(db, `select request_transfer_booking($1) as r`, [hold.hold_token]))).r;
+
+    const admin = await signedIn('admin@example.com');
+    const listed = (await admin.transfers()).find((t) => t.reference === view.reference)!;
+    expect(listed).toMatchObject({ amountMinor: 4_000_000, contactName: 'Ops Transfer', serviceName: 'Swedish Massage' });
+    expect(listed.updatedAt).toMatch(/\d{2}:\d{2}:\d{2}/);
+    await admin.confirmTransfer(listed.appointmentId, listed.updatedAt, 'Seen in the bank app');
+    expect((await admin.transfers()).some((t) => t.reference === view.reference)).toBe(false);
+    const detail = await admin.appointmentDetail(listed.appointmentId);
+    expect(detail.appointment).toMatchObject({ status: 'confirmed', settlement: 'bank_transfer', paymentState: 'paid_transfer' });
+
+    const settings = await admin.settings();
+    expect(settings).toMatchObject({ transferEnabled: true, bankAccountNumber: '0013819712', transferHoldMinutes: 120 });
+    expect((await failure(admin.updateTransferSettings(settings.updatedAt, { enabled: true, bankName: 'GTBank', accountNumber: '0123456789', accountName: 'SMM' }, 'Trying'))).code).toBe('not_authorized');
+
+    const therapist = await signedIn('therapist@example.com');
+    expect((await failure(therapist.transfers())).code).toBe('not_authorized');
   });
 });

@@ -51,6 +51,17 @@ An automated scan (axe-core, a pinned development dependency) found 45 contrast 
 | 8 | The live site uses the development backend `smm-dev`, which holds demo data and a demo owner account (`demo.owner@example.com`). | — | By the user's choice (demo data until the client is ready). Before the real launch, see section 7. |
 | 9 | Anyone with direct database or dashboard access is outside every control above. | Inherent | As in Phase 5: limit to the owner and trusted operators. |
 
+## 6a. Addendum: guest bookings paid by direct bank transfer (18 November 2026)
+
+Added after the review above, at the user's request (`20261019000100`, `20261019000200`). [bank-transfer, booking-handler, staff-operations, site-with-backend, transfer-screens, transfer-page, revert, security-snapshot]
+
+- **Slot safety.** Choosing transfer turns the guest's live reservation into a booking awaiting payment inside the same locks and checks as an online payment (schedule rules, therapist, treatment, area, overlap). It blocks the time like any booking; there is no window in which two guests can hold it.
+- **Money ledger.** No provider payment can be attached to a transfer booking (the Phase 5b ledger guard). An online payment that arrives later for the same reservation is flagged for refund as `duplicate_payment`, never a second booking.
+- **Who confirms.** Only owner and admin, through `staff_confirm_transfer`, with the record's version; audited with the note. Therapists and guests are refused. A booking not confirmed by its deadline (2 hours, and at the latest 15 minutes before it starts) is cancelled by the maintenance job, audited as a system action. Settlement changes cannot turn a transfer booking into another kind.
+- **Guest access.** The guest's page is opened only with an unguessable token (not the booking reference); its server functions are callable only by the Edge Function, which validates the token's form and rate-limits (5 new transfer bookings and 60 status checks per visitor per 10 minutes). A guest can have at most 2 unpaid transfer bookings. The page token is recorded in the activity log only as "changed".
+- **Bank details.** Not secret (guests are shown them), readable publicly like the other business settings; changed only by the owner, with a reason, audited.
+- **Residual risk.** The spa's bank account is not connected: the owner must check each transfer by hand, and nobody is notified automatically (notifications are out of scope). Someone could reserve times without paying; the 2-hour limit, the per-guest cap and the rate limits bound this.
+
 ## 7. Before the real launch
 
 - Create the separate production Supabase project (agreed in the Phase 6 plan) and point the production build at it; keep `smm-dev` for development.

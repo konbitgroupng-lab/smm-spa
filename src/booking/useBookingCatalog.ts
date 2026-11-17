@@ -66,7 +66,7 @@ export async function loadBookingCatalog(api: CatalogApi = defaultCatalogApi): P
     const services = catalog.services.filter((s) => s.dbId);
     const packages = catalog.packages.filter((p) => p.dbId);
     if (!settings || services.length + packages.length === 0) return { status: 'unavailable', reason: 'not_set_up' };
-    if (!settings.onlinePaymentEnabled) return { status: 'unavailable', reason: 'payments_off' };
+    if (!settings.onlinePaymentEnabled && !settings.transferEnabled) return { status: 'unavailable', reason: 'payments_off' };
     return {
       status: 'ready',
       catalog: { services, packages, therapists: therapists.filter((t) => t.dbId), zones, links, settings },

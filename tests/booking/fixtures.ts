@@ -39,7 +39,7 @@ export function makeCatalog(overrides: Partial<BookingCatalog> = {}): BookingCat
       ['th-bola', new Set(['svc-swedish'])],
     ]),
     settings: {
-      businessName: 'SMM', timezone: 'Africa/Lagos', currency: 'NGN', onlinePaymentEnabled: true, paymentMode: 'full',
+      businessName: 'SMM', timezone: 'Africa/Lagos', currency: 'NGN', onlinePaymentEnabled: true, transferEnabled: false, transferHoldMinutes: 120, paymentMode: 'full',
       depositPercent: 50, holdMinutes: 10, maxAdvanceDays: 60, minLeadMinutes: 120, slotIntervalMinutes: 30,
     },
     ...overrides,

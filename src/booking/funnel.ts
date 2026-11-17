@@ -26,7 +26,7 @@ export interface GuestDetails {
 }
 
 /** What a request is waiting for, if anything. */
-export type Pending = 'slots' | 'hold' | 'details' | 'payment' | null;
+export type Pending = 'slots' | 'hold' | 'details' | 'payment' | 'transfer' | null;
 
 /**
  * Error codes shown to the guest. Server codes are passed through; the
@@ -54,6 +54,12 @@ export interface FunnelState {
   /** The hold token the details were last saved against. */
   detailsSavedFor: string | null;
   payment: PaymentStart | null;
+  /**
+   * Online payment is offered (from the business settings). When it is not,
+   * the review step opens without an online payment and the guest pays by
+   * bank transfer.
+   */
+  onlinePayment: boolean;
   pending: Pending;
   error: FunnelError | null;
 }
@@ -77,6 +83,8 @@ export type FunnelAction =
   | { type: 'detailsRequested' }
   | { type: 'detailsSaved'; holdToken: string }
   | { type: 'paymentStarted'; payment: PaymentStart }
+  | { type: 'reviewReady' }
+  | { type: 'transferRequested' }
   | { type: 'requestFailed'; error: FunnelError }
   | { type: 'goTo'; step: FunnelStep }
   | { type: 'released'; token: string }
@@ -85,7 +93,7 @@ export type FunnelAction =
 
 const EMPTY_DETAILS: GuestDetails = { fullName: '', email: '', phone: '', notes: '' };
 
-export function initialFunnelState(preselect: { serviceId?: string | null } = {}): FunnelState {
+export function initialFunnelState(preselect: { serviceId?: string | null; onlinePayment?: boolean } = {}): FunnelState {
   return {
     step: 'service',
     serviceId: preselect.serviceId ?? null,
@@ -101,6 +109,7 @@ export function initialFunnelState(preselect: { serviceId?: string | null } = {}
     details: EMPTY_DETAILS,
     detailsSavedFor: null,
     payment: null,
+    onlinePayment: preselect.onlinePayment ?? true,
     pending: null,
     error: null,
   };
@@ -132,7 +141,8 @@ export function canEnter(state: FunnelState, step: FunnelStep): boolean {
     case 'details':
       return serviceReady(state) && state.hold !== null;
     case 'payment':
-      return serviceReady(state) && state.hold !== null && state.payment !== null && state.detailsSavedFor === state.hold.token;
+      return serviceReady(state) && state.hold !== null && state.detailsSavedFor === state.hold.token
+        && (state.payment !== null || !state.onlinePayment);
   }
 }
 
@@ -261,6 +271,14 @@ export function funnelReducer(state: FunnelState, action: FunnelAction): FunnelS
       if (!state.hold) return state;
       return { ...state, payment: action.payment, pending: null, error: null, step: 'payment' };
 
+    case 'reviewReady':
+      // No online payment to start: the guest reviews and pays by bank transfer.
+      if (!state.hold) return state;
+      return { ...state, pending: null, error: null, step: 'payment' };
+
+    case 'transferRequested':
+      return { ...state, pending: 'transfer', error: null };
+
     case 'requestFailed':
       return { ...state, pending: null, error: action.error };
 
@@ -277,7 +295,7 @@ export function funnelReducer(state: FunnelState, action: FunnelAction): FunnelS
 
     case 'reset':
       return {
-        ...initialFunnelState(),
+        ...initialFunnelState({ onlinePayment: state.onlinePayment }),
         releaseQueue: state.hold ? [...state.releaseQueue, state.hold.token] : state.releaseQueue,
       };
   }

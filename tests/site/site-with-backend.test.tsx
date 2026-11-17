@@ -240,12 +240,62 @@ describe('booking through the website', () => {
     expect(await rows(db, `select id from appointments where starts_at = $1`, [at(upcoming(TUE, 1), '14:00').toISOString()])).toEqual([]);
   });
 
-  it('with online payment switched off, the booking area offers contact details instead', async () => {
-    await db.query(`update business_settings set online_payment_enabled = false`);
+  it('with online payment and bank transfer both switched off, the booking area offers contact details instead', async () => {
+    await db.query(`update business_settings set online_payment_enabled = false, transfer_enabled = false`);
     try {
       await open();
       expect(await within(document.getElementById('booking')!).findByRole('heading', { name: /online booking is unavailable/i })).toBeTruthy();
       expect(document.getElementById('services')).not.toBeNull(); // the rest of the site is unaffected
+    } finally {
+      await db.query(`update business_settings set online_payment_enabled = true, transfer_enabled = true`);
+    }
+  });
+
+  it('paid by bank transfer: the time is reserved, the guest page shows the account, and confirms once staff see the transfer', async () => {
+    const user = await open();
+    await chooseTreatment(user, /swedish massage/i);
+    await chooseTherapistAndDate(user, null, upcoming(THU, 1));
+    await chooseTime(user, '11:00');
+    await enterDetailsAndReview(user, 'Transfer Guest');
+    await user.click(screen.getByRole('button', { name: /pay by bank transfer/i }));
+    await waitFor(() => expect(left).toHaveLength(1));
+    const page = new URL(left[0], SITE);
+    expect(page.searchParams.get('view')).toBe('transfer');
+
+    const guestUser = await follow(page.href);
+    expect(await screen.findByRole('heading', { level: 1, name: /your time is reserved/i })).toBeTruthy();
+    expect(screen.getByText('0013819712')).toBeTruthy();
+    expect(screen.getAllByText('₦40,000').length).toBeGreaterThan(0);
+    const reference = screen.getAllByText(/^SMM-/)[0].textContent!;
+    const appointment = await appointmentByReference(reference);
+    expect(appointment).toMatchObject({ status: 'pending_payment', settlement: 'bank_transfer', contact_name: 'Transfer Guest' });
+    // Nobody else can take the time meanwhile.
+    expect(await rows(db, `select 1 from get_available_slots($1, $2, null) where starts_at = $3`,
+      [appointment.service_id, upcoming(THU, 1), at(upcoming(THU, 1), '11:00').toISOString()])
+      .then((r) => r.length)).toBeLessThan(4);
+
+    // Staff confirm the transfer; the guest's page then says confirmed.
+    const admin = (await one(db, `select id from profiles where role in ('owner', 'admin') and is_active limit 1`).catch(() => null))?.id
+      ?? (await one(db, `insert into auth.users (email) values ('transfer.admin@example.com') returning id`)).id;
+    await db.query(`update profiles set role = 'admin', is_active = true where id = $1`, [admin]);
+    await asRole(db, 'authenticated', admin, () => db.query(`select staff_confirm_transfer($1, $2)`, [appointment.id, appointment.updated_at]));
+    await guestUser.click(screen.getByRole('button', { name: /check again/i }));
+    expect(await screen.findByRole('heading', { level: 1, name: /your booking is confirmed/i })).toBeTruthy();
+  });
+
+  it('with online payment off but bank transfer on, guests can still book, paying by transfer', async () => {
+    await db.query(`update business_settings set online_payment_enabled = false`);
+    try {
+      const user = await open();
+      await chooseTreatment(user, /swedish massage/i);
+      await chooseTherapistAndDate(user, null, upcoming(FRI, 1));
+      await chooseTime(user, '15:00');
+      await enterDetailsAndReview(user);
+      expect(screen.queryByRole('button', { name: /pay securely|continue to demo payment/i })).toBeNull();
+      expect(screen.getByTestId('amount-due').textContent).toBe('₦40,000');
+      await user.click(screen.getByRole('button', { name: /pay by bank transfer/i }));
+      await waitFor(() => expect(left).toHaveLength(1));
+      expect(new URL(left[0], SITE).searchParams.get('view')).toBe('transfer');
     } finally {
       await db.query(`update business_settings set online_payment_enabled = true`);
     }

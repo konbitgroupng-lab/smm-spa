@@ -10,6 +10,7 @@ import {
   Badge, Button, CheckboxField, ChoiceGroup, ErrorMessage, Field, LoadState, Notice, PageTitle, Panel, SelectField, TextAreaField,
 } from '../ui';
 import { dateTime, HistoryList, money, timeRange } from './common';
+import { TransfersPanel } from './TransfersPanel';
 
 /** A form that runs one staff action and reports the outcome. */
 function ActionForm({ submitLabel, tone = 'primary', onSubmit, children }: {
@@ -121,6 +122,10 @@ function Detail({ d, options, ops, role, reload }: {
 
         {a.status !== 'cancelled' && <DetailsPanel key={`d-${a.updatedAt}`} d={d} ops={ops} after={after} />}
 
+        {a.settlement === 'bank_transfer' && a.paymentState === 'awaiting_transfer' && (
+          <TransferForBooking ops={ops} appointmentId={a.id} after={after} />
+        )}
+
         {a.source !== 'online' && (
           <Panel title="Settlement">
             <p className="text-sm mb-3">Phone and WhatsApp bookings are never part of the online payment records. Record here whether the guest pays at the venue or has paid offline.</p>
@@ -157,6 +162,14 @@ function Detail({ d, options, ops, role, reload }: {
 }
 
 type After = (message: string) => Promise<string>;
+
+/** This booking's bank transfer, from the list of transfers awaiting confirmation. */
+function TransferForBooking({ ops, appointmentId, after }: { ops: StaffOps; appointmentId: string; after: After }) {
+  const transfers = useLoad(() => ops.transfers(), [ops]);
+  const mine = (transfers.data ?? []).filter((t) => t.appointmentId === appointmentId);
+  if (!transfers.data) return null;
+  return <TransfersPanel ops={ops} transfers={mine} reload={transfers.reload} onConfirmed={(m) => void after(m)} />;
+}
 
 function StatusPanel({ d, ops, role, started, after }: { d: AppointmentDetail; ops: StaffOps; role: StaffRole; started: boolean; after: After }) {
   const a = d.appointment;
@@ -304,6 +317,7 @@ function CancelPanel({ d, ops, after }: { d: AppointmentDetail; ops: StaffOps; a
         The time becomes free for other bookings straight away.
         {paidOnline && ' The online payment will be flagged for a refund; no money is returned automatically.'}
         {a.settlement === 'paid_offline' && ' This booking was paid offline: arrange any refund with the guest directly.'}
+        {a.paymentState === 'paid_transfer' && ' The guest paid by bank transfer: arrange any refund with them directly.'}
       </p>
       <ActionForm submitLabel="Cancel booking" tone="danger" onSubmit={async () => {
         const r = await ops.cancel(a.id, reason, a.updatedAt);

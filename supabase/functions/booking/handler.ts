@@ -25,6 +25,9 @@ const LIMITS: Record<string, number> = {
   create_hold: 10,
   attach_customer: 30,
   release_hold: 30,
+  // Guest bank transfers: few new ones per visitor; the guest's page checks its status now and then.
+  request_transfer: 5,
+  transfer_status: 60,
 };
 
 const MAX_BODY_BYTES = 4096;
@@ -39,6 +42,16 @@ const ERROR_STATUS: Record<string, number> = {
   therapist_unavailable: 422,
   dispatch_zone_required: 422,
   invalid_customer: 422,
+  transfer_not_found: 404,
+  // Bank transfers
+  customer_required: 422,
+  address_required: 422,
+  nothing_to_pay: 422,
+  transfer_too_late: 422,
+  transfer_limit: 409,
+  already_paid: 409,
+  schedule_changed: 409,
+  transfers_disabled: 503,
 };
 
 class InvalidRequest extends Error {}
@@ -59,6 +72,29 @@ function text(value: unknown, field: string, maxLength: number): string {
     throw new InvalidRequest(field);
   }
   return value;
+}
+
+function optionalText(value: unknown, field: string, maxLength: number): string | null {
+  if (value === undefined || value === null || value === '') return null;
+  if (typeof value !== 'string' || value.length > maxLength) throw new InvalidRequest(field);
+  return value;
+}
+
+/** The only transfer booking fields a guest ever receives (their own, by its token). */
+function publicTransfer(t: any) {
+  return {
+    token: t.token,
+    reference: t.reference,
+    status: t.status as 'awaiting' | 'confirmed' | 'cancelled',
+    expired: t.expired === true,
+    startsAt: t.starts_at,
+    endsAt: t.ends_at,
+    amountMinor: Number(t.amount_minor),
+    bookingTotalMinor: Number(t.booking_total_minor),
+    currency: t.currency,
+    dueAt: t.due_at,
+    bank: t.bank ? { name: t.bank.name, accountNumber: t.bank.account_number, accountName: t.bank.account_name } : null,
+  };
 }
 
 function timestamp(value: unknown, field: string): string {
@@ -109,6 +145,19 @@ async function run(action: string, body: Record<string, unknown>, deps: BookingD
         p_hold_token: uuid(body.holdToken, 'holdToken', true),
       });
       return { ...result, data: result.error ? null : { released: result.data === true } };
+    }
+    case 'request_transfer': {
+      const result = await deps.rpc('request_transfer_booking', {
+        p_hold_token: uuid(body.holdToken, 'holdToken', true),
+        p_service_address: optionalText(body.serviceAddress, 'serviceAddress', 300),
+        p_customer_notes: optionalText(body.notes, 'notes', 1000),
+      });
+      return { ...result, data: result.error ? null : { transfer: publicTransfer(result.data) } };
+    }
+    case 'transfer_status': {
+      const result = await deps.rpc('get_transfer_booking', { p_token: uuid(body.token, 'token', true) });
+      if (!result.error && !result.data) return { data: null, error: { message: 'transfer_not_found' } };
+      return { ...result, data: result.error ? null : { transfer: publicTransfer(result.data) } };
     }
     default:
       throw new InvalidRequest('action');

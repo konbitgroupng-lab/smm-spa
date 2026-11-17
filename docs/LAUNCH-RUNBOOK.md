@@ -13,6 +13,7 @@ Nothing here has been done yet. Each part is its own approved step: the producti
 | Paystack account approved for NGN card payments; test secret key first, live later | 7 | Never sent by chat or email: it is pasted straight into the Supabase secrets screen. |
 | An email sending service (SMTP) login, for example the client's Google Workspace, Zoho or Resend | 5 | So invitations and password-reset emails arrive reliably. |
 | Domain name, if wanted (for example `smmspa.ng`) | 8 | Bought by the client, in their name. |
+| Bank account for direct transfers | 4.3 | The site offers the account from the previous version (Standard Chartered Bank, 0013819712, Sweet Mobile Massage and Spa Limited). The owner confirms or corrects it in the staff app (Settings › Bank transfer). |
 | Second phone number check | — | The footer shows +234 706 667 2648 (the number its call link always dialled); the old text said 0706 672 648. The owner can correct it in Website › Contact details. |
 
 ## 2. Fix now on the development backend (small, safe)
@@ -57,7 +58,7 @@ Check: `node --env-file=.env.local scripts/hosted-check.mjs` shows no FAIL.
    update public.business_settings set allow_demo_payments = false, online_payment_enabled = false;
    ```
 
-   Section 7 switches online payment back on (staff app › Settings, owner only).
+   Section 7 switches online payment back on (staff app › Settings, owner only). Guests can still book meanwhile by **direct bank transfer**, if the owner has confirmed the account (Settings › Bank transfer): their time is reserved for 2 hours and the owner confirms each transfer under Today › Bank transfers to check.
 4. **The owner.** Deploy the functions first (section 6), then: Authentication › Users › Invite user with the owner's email. When they have set their password, make them owner once, in the SQL editor:
 
    ```sql
@@ -126,7 +127,8 @@ It only reads; in production mode demo data, demo payments, a missing Paystack k
 | A website release | Vercel › Deployments › the previous production deployment › **Instant Rollback** (no rebuild; takes seconds). Or `git revert` the change on `master` and push. |
 | Pointing the site at production | Put the `smm-dev` values back in Vercel's Production variables and redeploy. |
 | Real payments | `PAYMENT_PROVIDER` back to `mock` (development only) or remove it: the site falls back to WhatsApp and phone booking. Paid bookings stay. |
-| The Phase 6 database changes (content functions and rules) | In the SQL editor, in one transaction: `supabase/revert/20261016000200_content_functions.down.sql`, then `supabase/revert/20261016000100_content_security.down.sql`, then `delete from supabase_migrations.schema_migrations where version in ('20261016000100', '20261016000200');`. Content is kept; the staff Website section stops working until the migrations are applied again (`apply-migrations.mjs --apply`). Tested in `tests/db/revert.test.ts`. Deploy the matching website version too (Vercel Instant Rollback to a release before Phase 6b). |
+| Direct bank transfer | Switch it off (staff app › Settings › Bank transfer, owner): the option disappears from the booking step at once. To remove it from the database, after cancelling or rebooking any transfer bookings: `supabase/revert/20261019000200_bank_transfer.down.sql`, then `delete from supabase_migrations.schema_migrations where version = '20261019000200';` (the `bank_transfer` enum value stays; it is harmless). Tested in `tests/db/revert.test.ts`. |
+| The Phase 6 database changes (content functions and rules) | In the SQL editor, in one transaction: the bank transfer rollback above first, then `supabase/revert/20261016000200_content_functions.down.sql`, then `supabase/revert/20261016000100_content_security.down.sql`, then `delete from supabase_migrations.schema_migrations where version in ('20261016000100', '20261016000200');`. Content is kept; the staff Website section stops working until the migrations are applied again (`apply-migrations.mjs --apply`). Tested in `tests/db/revert.test.ts`. Deploy the matching website version too (Vercel Instant Rollback to a release before Phase 6b). |
 
 ## 11. Afterwards
 

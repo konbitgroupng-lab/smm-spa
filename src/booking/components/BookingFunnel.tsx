@@ -4,6 +4,7 @@ import { STEPS, type FunnelStep } from '../funnel';
 import type { BookingCatalog } from '../useBookingCatalog';
 import { announceBookingEngaged } from '../../components/widgetEvents';
 import { browser } from '../navigation';
+import { transferPageUrl } from '../../routes';
 import { useBookingFunnel, type FunnelApi } from '../useBookingFunnel';
 import BookingSummary, { StickySummaryBar } from './BookingSummary';
 import { DateTimeStep } from './steps/DateTimeStep';
@@ -142,7 +143,9 @@ export default function BookingFunnel({ catalog, callbackUrl, preselectServiceId
           {state.step === 'therapist' && <TherapistStep ref={headingRef} funnel={funnel} />}
           {state.step === 'datetime' && <DateTimeStep ref={headingRef} funnel={funnel} catalog={catalog} />}
           {state.step === 'details' && <DetailsStep ref={headingRef} funnel={funnel} />}
-          {state.step === 'payment' && state.payment && <PaymentStep ref={headingRef} funnel={funnel} onCheckout={navigate} />}
+          {state.step === 'payment' && (state.payment || !state.onlinePayment) && (
+            <PaymentStep ref={headingRef} funnel={funnel} onCheckout={navigate} onTransfer={(t) => navigate(transferPageUrl(t.token))} />
+          )}
 
           {state.step !== 'service' && (
             <div className="border-t border-spa-taupe pt-4 text-right">

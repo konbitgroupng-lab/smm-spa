@@ -20,6 +20,7 @@ export const SETTLEMENT_LABEL: Record<Settlement, string> = {
   online_payment: 'Online payment',
   pay_at_venue: 'Pay at venue',
   paid_offline: 'Paid offline',
+  bank_transfer: 'Bank transfer',
 };
 
 export const PAYMENT_LABEL: Record<PaymentState, string> = {
@@ -30,6 +31,8 @@ export const PAYMENT_LABEL: Record<PaymentState, string> = {
   unpaid: 'Not paid',
   to_collect: 'To collect',
   paid_offline: 'Paid offline',
+  awaiting_transfer: 'Awaiting bank transfer',
+  paid_transfer: 'Paid by bank transfer',
 };
 
 /** Badge colours by status: text and background pairs with enough contrast. */
@@ -80,6 +83,9 @@ export const ACTION_LABEL: Record<string, string> = {
   'catalogue.therapist_services_changed': 'Therapist treatments changed',
   'catalogue.zone_created': 'Area created',
   'catalogue.zone_updated': 'Area updated',
+  'appointment.transfer_received': 'Bank transfer received',
+  'appointment.transfer_expired': 'Cancelled: bank transfer not confirmed in time',
+  'settings.transfer_settings_changed': 'Bank transfer details changed',
   'content.faq_created': 'FAQ added',
   'content.faq_updated': 'FAQ edited',
   'content.faq_deleted': 'FAQ deleted',
@@ -167,6 +173,14 @@ export const FIELD_LABEL: Record<string, string> = {
   fee_minor: 'Travel fee',
   duration_minutes: 'Length (minutes)',
   buffer_minutes: 'Buffer (minutes)',
+  transfer_received_at: 'Transfer received',
+  transfer_due_at: 'Transfer due by',
+  transfer_amount_minor: 'Transfer amount',
+  transfer_token: 'Guest page link',
+  transfer_enabled: 'Bank transfer offered',
+  bank_name: 'Bank',
+  bank_account_number: 'Account number',
+  bank_account_name: 'Account name',
 };
 
 /** Why a booking is in conflict with the schedule or catalogue. */

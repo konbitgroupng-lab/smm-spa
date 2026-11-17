@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef } from 'react';
 import { rememberPendingPayment } from './pendingPayment';
-import { attachCustomer, createHold, getAvailableSlots, releaseHold } from '../services/bookingService';
+import { attachCustomer, createHold, getAvailableSlots, releaseHold, requestTransfer, type TransferBooking } from '../services/bookingService';
 import { startPayment } from '../services/paymentService';
 import { DEFAULT_TIMEZONE } from './dates';
 import {
@@ -32,6 +32,7 @@ export interface FunnelApi {
   attachCustomer: typeof attachCustomer;
   releaseHold: typeof releaseHold;
   startPayment: typeof startPayment;
+  requestTransfer: typeof requestTransfer;
   /** Lets the confirmation page offer a retry after a failed payment (this tab only). */
   rememberPayment: typeof rememberPendingPayment;
 }
@@ -42,6 +43,7 @@ export const defaultFunnelApi: FunnelApi = {
   attachCustomer,
   releaseHold,
   startPayment,
+  requestTransfer,
   rememberPayment: rememberPendingPayment,
 };
 
@@ -56,7 +58,8 @@ export interface UseBookingFunnelOptions {
 const errorCode = (err: unknown): string => (err as { code?: string } | null)?.code ?? 'unknown';
 
 export function useBookingFunnel({ catalog, callbackUrl, api = defaultFunnelApi, preselectServiceId = null }: UseBookingFunnelOptions) {
-  const [state, dispatch] = useReducer(funnelReducer, preselectServiceId, (serviceId) => initialFunnelState({ serviceId }));
+  const [state, dispatch] = useReducer(funnelReducer, preselectServiceId, (serviceId) =>
+    initialFunnelState({ serviceId, onlinePayment: catalog.settings.onlinePaymentEnabled }));
   const timeZone = catalog.settings.timezone || DEFAULT_TIMEZONE;
 
   // Latest state for async callbacks, without re-creating them on every change.
@@ -175,6 +178,10 @@ export function useBookingFunnel({ catalog, callbackUrl, api = defaultFunnelApi,
         });
       }
       dispatch({ type: 'detailsSaved', holdToken: hold.token });
+      if (!current.onlinePayment) {
+        dispatch({ type: 'reviewReady' });
+        return;
+      }
       const payment = await api.startPayment(hold.token, {
         serviceAddress: current.location === 'mobile' ? current.serviceAddress.trim() : undefined,
         notes: current.details.notes.trim() || undefined,
@@ -188,6 +195,28 @@ export function useBookingFunnel({ catalog, callbackUrl, api = defaultFunnelApi,
       else dispatch({ type: 'requestFailed', error: code });
     }
   }, [api, callbackUrl]);
+
+  /**
+   * Pay by direct bank transfer: the reservation becomes a booking awaiting
+   * the transfer. The server sets the amount and the deadline.
+   */
+  const payByTransfer = useCallback(async (): Promise<TransferBooking | null> => {
+    const current = stateRef.current;
+    if (!current.hold || current.pending) return null;
+    dispatch({ type: 'transferRequested' });
+    try {
+      return await api.requestTransfer(current.hold.token, {
+        serviceAddress: current.location === 'mobile' ? current.serviceAddress.trim() : undefined,
+        notes: current.details.notes.trim() || undefined,
+      });
+    } catch (err) {
+      const code = errorCode(err);
+      if (code === 'hold_expired') dispatch({ type: 'holdExpired' });
+      else if (code === 'slot_unavailable') dispatch({ type: 'holdFailed', error: code });
+      else dispatch({ type: 'requestFailed', error: code });
+      return null;
+    }
+  }, [api]);
 
   // ---- Derived values for the screens ----
   const allItems = useMemo(() => [...catalog.services, ...catalog.packages], [catalog]);
@@ -223,6 +252,10 @@ export function useBookingFunnel({ catalog, callbackUrl, api = defaultFunnelApi,
     chooseSlot,
     updateDetails,
     submitDetails,
+    payByTransfer,
+    /** Guests may pay by direct bank transfer. */
+    transferEnabled: catalog.settings.transferEnabled,
+    transferHoldMinutes: catalog.settings.transferHoldMinutes,
     goTo,
     back,
     cancel,

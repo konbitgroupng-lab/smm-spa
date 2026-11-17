@@ -9,8 +9,11 @@
 
 -- Online payment is on, with simulated (demo) payments allowed: development only.
 -- Production must have allow_demo_payments = false (the default).
-insert into public.business_settings (business_name, timezone, currency, online_payment_enabled, allow_demo_payments, payment_mode, deposit_percent)
-values ('SMM (Sweet Mobile Massage and Spa)', 'Africa/Lagos', 'NGN', true, true, 'full', 50);
+insert into public.business_settings (business_name, timezone, currency, online_payment_enabled, allow_demo_payments, payment_mode, deposit_percent,
+                                     transfer_enabled, bank_name, bank_account_number, bank_account_name)
+values ('SMM (Sweet Mobile Massage and Spa)', 'Africa/Lagos', 'NGN', true, true, 'full', 50,
+        -- Direct bank transfer: the account shown on the previous version of the site (not yet confirmed by the client).
+        true, 'Standard Chartered Bank', '0013819712', 'Sweet Mobile Massage and Spa Limited');
 
 -- Placeholder opening hours: 09:00-21:00 every day.
 insert into public.business_hours (day_of_week, is_closed, opens_at, closes_at)

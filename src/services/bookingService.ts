@@ -32,7 +32,17 @@ export type BookingErrorCode =
   | 'invalid_customer'
   | 'invalid_request'
   | 'rate_limited'
-  | 'server_error';
+  | 'server_error'
+  // Bank transfers
+  | 'customer_required'
+  | 'address_required'
+  | 'nothing_to_pay'
+  | 'transfer_too_late'
+  | 'transfer_limit'
+  | 'already_paid'
+  | 'schedule_changed'
+  | 'transfers_disabled'
+  | 'transfer_not_found';
 
 export class BookingError extends Error {
   constructor(public readonly code: BookingErrorCode, public readonly reason?: string) {
@@ -109,4 +119,32 @@ export async function attachCustomer(
 
 export async function releaseHold(holdToken: string): Promise<boolean> {
   return (await invoke<{ released: boolean }>({ action: 'release_hold', holdToken })).released;
+}
+
+/** A booking the guest is paying by direct bank transfer, as their page shows it. */
+export interface TransferBooking {
+  /** Secret: opens the guest's page. */
+  token: string;
+  reference: string;
+  status: 'awaiting' | 'confirmed' | 'cancelled';
+  /** Cancelled because the transfer was not confirmed in time. */
+  expired: boolean;
+  startsAt: string;
+  endsAt: string;
+  amountMinor: number;
+  bookingTotalMinor: number;
+  currency: string;
+  /** The transfer must be confirmed by then, or the booking lapses. */
+  dueAt: string;
+  /** Shown only while the transfer is awaited. */
+  bank: { name: string; accountNumber: string; accountName: string } | null;
+}
+
+/** Turns the guest's reservation into a booking awaiting their bank transfer. The server sets the amount. */
+export async function requestTransfer(holdToken: string, extra: { serviceAddress?: string; notes?: string } = {}): Promise<TransferBooking> {
+  return (await invoke<{ transfer: TransferBooking }>({ action: 'request_transfer', holdToken, ...extra })).transfer;
+}
+
+export async function getTransferBooking(token: string): Promise<TransferBooking> {
+  return (await invoke<{ transfer: TransferBooking }>({ action: 'transfer_status', token })).transfer;
 }
