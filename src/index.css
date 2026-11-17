@@ -9,7 +9,8 @@
   --color-spa-linen: #f5f1eb;
   --color-spa-taupe: #e8dfd8;
   --color-spa-gold: #f4c430;
-  --color-spa-gold-dark: #7a6218;
+  /* Dark bronze: readable gold-family text on light backgrounds (4.5:1 or more on white, cream, linen and taupe). */
+  --color-spa-gold-dark: #765e16;
   --color-spa-charcoal: #1a1a1a;
   --color-spa-clay: #8a6a5e;
   /* Helper text in the booking funnel and confirmation page: the clay hue, dark enough for

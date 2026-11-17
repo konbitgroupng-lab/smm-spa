@@ -326,7 +326,7 @@ function ContactForm({ ops, c, reload }: { ops: StaffOps; c: SiteContent; reload
   return (
     <div className="max-w-xl">
       <Panel title="Contact details">
-        <p className="text-sm mb-4">Shown in the website footer and used by the call and WhatsApp buttons. Leave a field blank to hide it.</p>
+        <p className="text-sm mb-4">Shown in the website footer and used by the call and WhatsApp buttons. A blank address, second phone or email is hidden; a blank phone or WhatsApp number keeps the website's built-in one.</p>
         <SaveForm submitLabel="Save contact details" onSubmit={async () => {
           await ops.saveContact(c.contact.updatedAt, {
             address: clean(f.address), phone: clean(f.phone), phone_secondary: clean(f.phoneSecondary), email: clean(f.email), whatsapp: clean(f.whatsapp),
@@ -470,7 +470,7 @@ function AnnouncementEditor({ ops, item, reload }: { ops: StaffOps; item: Conten
         }}>
           <SelectField label="Type" value={f.kind} onChange={set('kind')}
             options={[{ value: 'announcement', label: 'Announcement' }, { value: 'promotion', label: 'Promotion' }]} />
-          <Field label="Title" value={f.title} onChange={set('title')} autoComplete="off" hint="Short: it is shown in a strip at the top of the homepage." />
+          <Field label="Title" value={f.title} onChange={set('title')} autoComplete="off" hint="Short: it is shown in a strip just under the homepage banner." />
           <TextAreaField label="More detail (optional)" value={f.body} onChange={set('body')} maxLength={1000} />
           <div className="grid gap-x-3 sm:grid-cols-2">
             <Field label="Show from (optional)" type="datetime-local" value={f.startsAt} onChange={set('startsAt')} required={false} />

@@ -26,7 +26,7 @@ const REFUND_REASONS: Record<string, string> = {
   duplicate_payment: 'This booking had already been paid for, so this payment was not needed.',
 };
 
-const WHATSAPP = whatsappUrl('Hi! I have a question about my booking.');
+const whatsappAboutBooking = () => whatsappUrl('Hi! I have a question about my booking.');
 const POLL_EVERY_MS = 3000;
 const MAX_AUTO_CHECKS = 10;
 
@@ -193,7 +193,7 @@ export default function BookingConfirmationPage({
             </p>
             <p>
               Any refund due on your payment will be arranged by us. If you have questions, message us on{' '}
-              <a href={WHATSAPP} target="_blank" rel="noopener noreferrer" className={`underline ${focusRing}`}>
+              <a href={whatsappAboutBooking()} target="_blank" rel="noopener noreferrer" className={`underline ${focusRing}`}>
                 WhatsApp
               </a>
               .
@@ -232,7 +232,7 @@ export default function BookingConfirmationPage({
             <p>{REFUND_REASONS[outcome.reason ?? ''] ?? 'Your booking could not be completed.'}</p>
             <p>
               <strong>You will be refunded in full.</strong> We have been notified and will be in touch. You can also reach us on{' '}
-              <a href={WHATSAPP} target="_blank" rel="noopener noreferrer" className={`underline ${focusRing}`}>
+              <a href={whatsappAboutBooking()} target="_blank" rel="noopener noreferrer" className={`underline ${focusRing}`}>
                 WhatsApp
               </a>
               .

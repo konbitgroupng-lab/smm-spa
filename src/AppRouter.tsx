@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react';
 import App from './App';
 import WhatsAppWidget from './components/WhatsAppWidget';
+import { useSiteContent } from './content/useSiteContent';
 import { resolveView } from './routes';
 
 // The confirmation, demo checkout and video pages load only when visited, so
@@ -11,13 +12,15 @@ const VideoGalleryPage = lazy(() => import('./videos/VideoGalleryPage'));
 
 export default function AppRouter({ search }: { search: string }) {
   const view = resolveView(search);
+  // The owner's website content; its contact details apply on every page.
+  const content = useSiteContent();
   // The WhatsApp concierge is on every public page; not on the simulated
   // payment provider's checkout, which stands in for a third-party page.
   const concierge = view.page !== 'demo-checkout' && <WhatsAppWidget />;
   if (view.page === 'site') {
     return (
       <>
-        <App />
+        <App content={content} />
         {concierge}
       </>
     );

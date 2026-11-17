@@ -1,3 +1,4 @@
+import Eyebrow from '../components/Eyebrow';
 import { ArrowRight, Play } from 'lucide-react';
 import { focusRing } from '../booking/components/ui';
 import { featuredVideoIds, findVideo, formatDuration, VIDEO_CATEGORY_LABELS, videoGalleryData, videoPageUrl, type VideoGalleryItem } from './videoGallery';
@@ -12,10 +13,10 @@ export default function VideoGalleryPreview() {
     <section id="video-gallery" className="py-24 bg-spa-cream border-t border-spa-taupe relative">
       <div className="max-w-6xl mx-auto px-6">
         <div className="text-center max-w-2xl mx-auto space-y-4 mb-14">
-          <span className="text-spa-gold text-xs uppercase tracking-[0.3em] font-semibold block">See It In Motion</span>
+          <Eyebrow>See It In Motion</Eyebrow>
           <h2 className="font-serif text-3xl md:text-5xl text-spa-charcoal">Video <span className="italic">Gallery</span></h2>
           <div className="w-12 h-[1px] bg-spa-gold mx-auto mt-4"></div>
-          <p className="text-spa-clay text-sm font-light mt-4">
+          <p className="text-spa-clay-text text-sm font-light mt-4">
             Real sessions, our boutique sanctuary, and the team behind SMM (Sweet Mobile Massage and Spa) &mdash; captured on video.
           </p>
         </div>

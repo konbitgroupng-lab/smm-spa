@@ -24,8 +24,6 @@ import {
   Heart, 
   Info, 
   Instagram, 
-  Facebook, 
-  Twitter, 
   ArrowLeft,
   CalendarCheck,
   Map,
@@ -43,9 +41,6 @@ import {
 import {
   servicesData,
   therapistsData,
-  galleryData,
-  testimonialsData,
-  faqsData,
   packagesData,
   Service,
   Therapist,
@@ -54,8 +49,11 @@ import {
   Testimonial
 } from './data';
 import VideoGalleryPreview from './videos/VideoGalleryPreview';
-import { PHONE_DISPLAY, PHONE_E164, whatsappUrl } from './config/business';
+import { contactDetails, whatsappUrl } from './config/business';
+import { BUILT_IN_CONTENT, type SiteContent } from './content/useSiteContent';
+import AnnouncementStrip from './content/AnnouncementStrip';
 import WhatsAppEnquiryLink from './components/WhatsAppEnquiryLink';
+import Eyebrow from './components/Eyebrow';
 import SpaBookingWidget from './components/SpaBookingWidget';
 import SiteMenu, { type SiteMenuLink } from './components/SiteMenu';
 import BookingSection from './booking/components/LazyBookingSection';
@@ -88,7 +86,9 @@ const NAV_LINKS: SiteMenuLink[] = [
   { href: '#faqs', label: 'FAQs' },
 ];
 
-export default function App() {
+export default function App({ content = BUILT_IN_CONTENT }: { content?: SiteContent }) {
+  const { faqs, gallery, testimonials, announcements, hero } = content;
+  const contact = contactDetails();
   // Navigation & Scroll State
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -183,8 +183,8 @@ export default function App() {
 
   // Filter gallery items
   const filteredGallery = activeGalleryFilter === 'all'
-    ? galleryData
-    : galleryData.filter(item => item.category === activeGalleryFilter);
+    ? gallery
+    : gallery.filter(item => item.category === activeGalleryFilter);
 
   // Filter service items by tab
   const filteredServices = activeSection === 'all'
@@ -293,12 +293,16 @@ export default function App() {
                 </p>
 
                 <h1 className="font-serif text-4xl sm:text-5xl md:text-7xl tracking-wide leading-tight font-medium [text-shadow:0_2px_16px_rgba(0,0,0,0.35)]">
-                  On-Demand Wellness, <br />
-                  <span className="italic font-normal">Tranquility</span> on Your Terms.
+                  {hero ? hero.heading : (
+                    <>
+                      On-Demand Wellness, <br />
+                      <span className="italic font-normal">Tranquility</span> on Your Terms.
+                    </>
+                  )}
                 </h1>
 
                 <p className="text-spa-linen/80 max-w-2xl mx-auto text-sm md:text-lg leading-relaxed font-light font-sans tracking-wide">
-                  SMM (Sweet Mobile Massage and Spa) redefines boutique relaxation. Experience pristine walk-in treatments at our safe, secure Lagos sanctuary, or have our qualified master therapists bring the entire spa ritual directly to your doorstep.
+                  {hero?.subheading ?? 'SMM (Sweet Mobile Massage and Spa) redefines boutique relaxation. Experience pristine walk-in treatments at our safe, secure Lagos sanctuary, or have our qualified master therapists bring the entire spa ritual directly to your doorstep.'}
                 </p>
 
                 <div className="pt-5 sm:pt-8 flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4">
@@ -397,6 +401,8 @@ export default function App() {
         </div>
       </section>
 
+      <AnnouncementStrip announcements={announcements} />
+
       {/* Trust & Credibility Bar - the numbers guests look for before they book */}
       <section className="bg-spa-charcoal border-b border-white/5">
         <div className="max-w-7xl mx-auto px-6 py-8 grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8">
@@ -450,13 +456,13 @@ export default function App() {
             {/* Column 2: Text detail focusing on aesthetic luxury */}
             <div className="lg:col-span-7 space-y-8">
               <div className="space-y-4">
-                <span className="text-spa-gold text-xs uppercase tracking-[0.3em] font-semibold block">The SMM Vibe</span>
+                <Eyebrow align="start">The SMM Vibe</Eyebrow>
                 <h2 className="font-serif text-3xl md:text-5xl leading-tight text-spa-charcoal">
                   A sanctuary designed for absolute <span className="italic">sensory</span> reboot.
                 </h2>
               </div>
 
-              <div className="text-spa-clay leading-relaxed space-y-6 font-light">
+              <div className="text-spa-clay-text leading-relaxed space-y-6 font-light">
                 <p>
                   At SMM (Sweet Mobile Massage and Spa), we believe relaxation shouldn't be high-effort. We seamlessly bridge the gap between premium medical-grade muscle care and traditional peaceful day spa atmospheres.
                 </p>
@@ -473,7 +479,7 @@ export default function App() {
                   </div>
                   <div>
                     <h4 className="font-serif text-lg font-medium text-spa-charcoal">Qualified Master Therapists</h4>
-                    <p className="text-xs text-spa-clay/80 mt-1">Rigorously selected, vetted, and specialized in precise kinesiology and sensory rituals.</p>
+                    <p className="text-xs text-spa-clay-text mt-1">Rigorously selected, vetted, and specialized in precise kinesiology and sensory rituals.</p>
                   </div>
                 </div>
 
@@ -483,7 +489,7 @@ export default function App() {
                   </div>
                   <div>
                     <h4 className="font-serif text-lg font-medium text-spa-charcoal">Ultimate Discretion & Safety</h4>
-                    <p className="text-xs text-spa-clay/80 mt-1">We enforce meticulous hygiene standards and guarantee private, quiet experiences.</p>
+                    <p className="text-xs text-spa-clay-text mt-1">We enforce meticulous hygiene standards and guarantee private, quiet experiences.</p>
                   </div>
                 </div>
               </div>
@@ -491,7 +497,7 @@ export default function App() {
               {/* Consistency guarantee callout */}
               <div className="flex items-center gap-4 bg-spa-linen border border-spa-taupe rounded p-5">
                 <CheckCircle2 className="w-8 h-8 text-spa-gold flex-shrink-0" />
-                <p className="text-xs text-spa-clay leading-relaxed">
+                <p className="text-xs text-spa-clay-text leading-relaxed">
                   <strong className="text-spa-charcoal font-semibold">Our Consistency Promise:</strong> the same calming, high standard of care every visit — regardless of which of our therapists attends to you.
                 </p>
               </div>
@@ -509,10 +515,10 @@ export default function App() {
 
           {/* Section Header */}
           <div className="text-center max-w-2xl mx-auto space-y-4 mb-16">
-            <span className="text-spa-gold text-xs uppercase tracking-[0.3em] font-semibold block">Curated Therapy</span>
+            <Eyebrow>Curated Therapy</Eyebrow>
             <h2 className="font-serif text-3xl md:text-5xl text-spa-charcoal">Our <span className="italic">Healing</span> Services</h2>
             <div className="w-12 h-[1px] bg-spa-gold mx-auto mt-4"></div>
-            <p className="text-spa-clay text-sm font-light mt-4">
+            <p className="text-spa-clay-text text-sm font-light mt-4">
               Carefully conceptualized 60-minute therapies to heal muscular distress, enhance deep sleep, and re-establish physical tranquility.
             </p>
           </div>
@@ -548,7 +554,7 @@ export default function App() {
                       <span className="text-spa-gold-dark font-serif text-2xl font-light">{service.formattedPrice}</span>
                     </div>
 
-                    <p className="text-sm text-spa-clay/90 font-light leading-relaxed">
+                    <p className="text-sm text-spa-clay-text font-light leading-relaxed">
                       {service.description}
                     </p>
 
@@ -557,7 +563,7 @@ export default function App() {
                       <h4 className="text-xs uppercase tracking-wider text-spa-charcoal font-semibold">Key Benefits:</h4>
                       <ul className="space-y-2">
                         {service.benefits.map((benefit, i) => (
-                          <li key={i} className="flex items-start gap-2.5 text-xs text-spa-clay">
+                          <li key={i} className="flex items-start gap-2.5 text-xs text-spa-clay-text">
                             <Check className="w-3.5 h-3.5 text-spa-gold mt-0.5 flex-shrink-0" />
                             <span>{benefit}</span>
                           </li>
@@ -581,7 +587,7 @@ export default function App() {
             ))}
           </div>
 
-          <div className="mt-16 text-center text-xs text-spa-clay italic flex items-center justify-center gap-2">
+          <div className="mt-16 text-center text-xs text-spa-clay-text italic flex items-center justify-center gap-2">
             <Info className="w-4 h-4 text-spa-gold" />
             <span>All therapies can be custom prolonged to 90 or 120 minutes. Simply coordinate with your assigned therapist.</span>
           </div>
@@ -594,10 +600,10 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-6">
 
           <div className="text-center max-w-2xl mx-auto space-y-4 mb-16">
-            <span className="text-spa-gold text-xs uppercase tracking-[0.3em] font-semibold block">Bundle & Save</span>
+            <Eyebrow>Bundle & Save</Eyebrow>
             <h2 className="font-serif text-3xl md:text-5xl text-spa-charcoal"><span className="italic">Signature</span> Packages</h2>
             <div className="w-12 h-[1px] bg-spa-gold mx-auto mt-4"></div>
-            <p className="text-spa-clay text-sm font-light mt-4">
+            <p className="text-spa-clay-text text-sm font-light mt-4">
               Combine our most-loved therapies into one extended sanctuary visit — curated for deeper results and better value.
             </p>
           </div>
@@ -630,14 +636,14 @@ export default function App() {
                 <div className="p-8 space-y-5 flex-1">
                   <div className="space-y-1 border-b border-spa-taupe pb-4">
                     <h3 className="font-serif text-2xl text-spa-charcoal font-medium">{pkg.name}</h3>
-                    <p className="text-xs text-spa-clay">{pkg.duration} mins total</p>
+                    <p className="text-xs text-spa-clay-text">{pkg.duration} mins total</p>
                   </div>
 
-                  <p className="text-sm text-spa-clay/90 font-light leading-relaxed">{pkg.description}</p>
+                  <p className="text-sm text-spa-clay-text font-light leading-relaxed">{pkg.description}</p>
 
                   <ul className="space-y-2">
                     {pkg.benefits.map((benefit, i) => (
-                      <li key={i} className="flex items-start gap-2.5 text-xs text-spa-clay">
+                      <li key={i} className="flex items-start gap-2.5 text-xs text-spa-clay-text">
                         <Check className="w-3.5 h-3.5 text-spa-gold mt-0.5 flex-shrink-0" />
                         <span>{benefit}</span>
                       </li>
@@ -646,7 +652,7 @@ export default function App() {
 
                   <div className="flex items-baseline gap-3 pt-2">
                     <span className="font-serif text-3xl font-semibold text-spa-gold-dark">{pkg.formattedPrice}</span>
-                    <span className="text-sm text-spa-clay/60 line-through">{pkg.formattedOriginalPrice}</span>
+                    <span className="text-sm text-spa-clay-text line-through">{pkg.formattedOriginalPrice}</span>
                   </div>
                 </div>
 
@@ -675,10 +681,10 @@ export default function App() {
           
           {/* Section Header */}
           <div className="text-center max-w-2xl mx-auto space-y-4 mb-16">
-            <span className="text-spa-gold text-xs uppercase tracking-[0.3em] font-semibold block">Seamless Reservation</span>
+            <Eyebrow>Seamless Reservation</Eyebrow>
             <h2 id={BOOKING_HEADING_ID} tabIndex={-1} className="font-serif text-3xl md:text-5xl text-spa-charcoal focus:outline-none">Schedule Your <span className="italic">Therapy</span></h2>
             <div className="w-12 h-[1px] bg-spa-gold mx-auto mt-4"></div>
-            <p className="text-spa-clay text-sm font-light mt-4">
+            <p className="text-spa-clay-text text-sm font-light mt-4">
               Enter your preferences below to calculate prices transparently, select a therapist, and lock in your session slot.
             </p>
           </div>
@@ -694,10 +700,10 @@ export default function App() {
           
           {/* Section Header */}
           <div className="text-center max-w-2xl mx-auto space-y-4 mb-16">
-            <span className="text-spa-gold text-xs uppercase tracking-[0.3em] font-semibold block">Tranquility Captured</span>
+            <Eyebrow>Tranquility Captured</Eyebrow>
             <h2 className="font-serif text-3xl md:text-5xl text-spa-charcoal"><span className="italic">Sanctuary</span> Gallery</h2>
             <div className="w-12 h-[1px] bg-spa-gold mx-auto mt-4"></div>
-            <p className="text-spa-clay text-sm font-light mt-4">
+            <p className="text-spa-clay-text text-sm font-light mt-4">
               A peaceful visual journey through our boutique treatment rooms, therapeutic hot stone arrangements, and organic aromatherapy rituals.
             </p>
           </div>
@@ -716,7 +722,7 @@ export default function App() {
                 className={`px-5 py-2 rounded-full text-xs uppercase tracking-widest font-bold transition-all border ${
                   activeGalleryFilter === tab.id 
                     ? 'bg-spa-charcoal border-spa-charcoal text-white shadow-md' 
-                    : 'bg-white hover:bg-spa-linen border-spa-taupe text-spa-clay'
+                    : 'bg-white hover:bg-spa-linen border-spa-taupe text-spa-clay-text'
                 }`}
               >
                 {tab.label}
@@ -744,7 +750,7 @@ export default function App() {
                   <div className="relative h-64 sm:h-72 overflow-hidden rounded-sm">
                     <img 
                       src={item.imageUrl} 
-                      alt={item.title} 
+                      alt={item.altText || item.title} 
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 brightness-95"
                       referrerPolicy="no-referrer"
                     />
@@ -757,7 +763,7 @@ export default function App() {
                   </div>
                   <div className="pt-4 pb-2 px-1 flex justify-between items-center">
                     <span className="font-serif text-base text-spa-charcoal font-medium">{item.title}</span>
-                    <span className="text-[10px] uppercase tracking-wider text-spa-gold font-bold capitalize">
+                    <span className="text-[10px] uppercase tracking-wider text-spa-gold-dark font-bold capitalize">
                       {item.category}
                     </span>
                   </div>
@@ -814,10 +820,10 @@ export default function App() {
 
           {/* Section Header */}
           <div className="text-center max-w-2xl mx-auto space-y-4 mb-16">
-            <span className="text-spa-gold text-xs uppercase tracking-[0.3em] font-semibold block">The Hands Behind The Ritual</span>
+            <Eyebrow>The Hands Behind The Ritual</Eyebrow>
             <h2 className="font-serif text-3xl md:text-5xl text-spa-charcoal">Meet Our <span className="italic">Therapists</span></h2>
             <div className="w-12 h-[1px] bg-spa-gold mx-auto mt-4"></div>
-            <p className="text-spa-clay text-sm font-light mt-4">
+            <p className="text-spa-clay-text text-sm font-light mt-4">
               Certified master therapists dedicated to bringing boutique-quality care to every session, at our sanctuary or at your doorstep.
             </p>
           </div>
@@ -839,7 +845,7 @@ export default function App() {
                 </div>
                 <div className="pt-4 pb-2 px-1 text-center">
                   <span className="block font-serif text-base text-spa-charcoal font-medium">{member.name}</span>
-                  <span className="block text-[10px] uppercase tracking-wider text-spa-gold font-bold mt-1">
+                  <span className="block text-[10px] uppercase tracking-wider text-spa-gold-dark font-bold mt-1">
                     {member.role}
                   </span>
                 </div>
@@ -851,48 +857,52 @@ export default function App() {
       </section>
 
 
-      {/* Testimonials Grid / Guest Reviews */}
+      {/* Testimonials Grid / Guest Reviews - only real, published reviews; hidden until there is one */}
+      {testimonials.length > 0 && (
       <section className="py-24 bg-spa-linen border-t border-spa-taupe relative overflow-hidden">
         {/* Decorative blush accent, echoing the flyer's petals */}
         <div className="absolute -top-20 -left-20 w-80 h-80 bg-spa-blush/15 rounded-full blur-3xl pointer-events-none"></div>
         <div className="max-w-7xl mx-auto px-6">
           <div className="text-center max-w-2xl mx-auto space-y-4 mb-16">
-            <span className="text-spa-gold text-xs uppercase tracking-[0.3em] font-semibold block">Guest Experiences</span>
+            <Eyebrow>Guest Experiences</Eyebrow>
             <h2 className="font-serif text-3xl md:text-5xl text-spa-charcoal"><span className="italic">Tranquil</span> Feedback</h2>
             <div className="w-12 h-[1px] bg-spa-gold mx-auto mt-4"></div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {testimonialsData.map((test) => (
+            {testimonials.map((test) => (
               <div 
                 key={test.id}
                 className="bg-white border border-spa-taupe p-8 rounded shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col justify-between"
               >
                 <div className="space-y-4">
                   {/* Rating gold stars */}
-                  <div className="flex gap-1">
+                  <div className="flex gap-1" role="img" aria-label={`${test.rating} out of 5 stars`}>
                     {[...Array(test.rating)].map((_, i) => (
-                      <span key={i} className="text-spa-gold font-bold">★</span>
+                      <span key={i} aria-hidden="true" className="text-spa-gold-dark font-bold">★</span>
                     ))}
                   </div>
-                  <p className="text-sm text-spa-clay font-light leading-relaxed italic">
+                  <p className="text-sm text-spa-clay-text font-light leading-relaxed italic">
                     "{test.text}"
                   </p>
                 </div>
                 <div className="border-t border-spa-taupe/60 pt-4 mt-6 flex justify-between items-center text-xs">
                   <div>
                     <span className="font-bold text-spa-charcoal block">{test.name}</span>
-                    <span className="text-spa-clay/70 font-light block">{test.location}</span>
+                    <span className="text-spa-clay-text font-light block">{test.location}</span>
                   </div>
-                  <span className="text-[10px] bg-spa-linen border border-spa-taupe px-2.5 py-1 rounded-full text-spa-clay uppercase tracking-widest font-semibold">
-                    {test.serviceName}
-                  </span>
+                  {test.serviceName && (
+                    <span className="text-[10px] bg-spa-linen border border-spa-taupe px-2.5 py-1 rounded-full text-spa-clay-text uppercase tracking-widest font-semibold">
+                      {test.serviceName}
+                    </span>
+                  )}
                 </div>
               </div>
             ))}
           </div>
         </div>
       </section>
+      )}
 
       {/* Gift Cards & Membership - the two proven revenue/loyalty levers our top-performing peers all use */}
       <section className="py-24 bg-spa-charcoal relative">
@@ -956,14 +966,14 @@ export default function App() {
           
           {/* Section Header */}
           <div className="text-center max-w-2xl mx-auto space-y-4 mb-16">
-            <span className="text-spa-gold text-xs uppercase tracking-[0.3em] font-semibold block">Clear Guidance</span>
+            <Eyebrow>Clear Guidance</Eyebrow>
             <h2 className="font-serif text-3xl md:text-5xl text-spa-charcoal">Frequently <span className="italic">Asked</span> Questions</h2>
             <div className="w-12 h-[1px] bg-spa-gold mx-auto mt-4"></div>
           </div>
 
           {/* Accordion Container */}
           <div className="space-y-4">
-            {faqsData.map((faq) => (
+            {faqs.map((faq) => (
               <div 
                 key={faq.id}
                 className="bg-white border border-spa-taupe rounded overflow-hidden shadow-sm"
@@ -988,7 +998,7 @@ export default function App() {
                       exit={{ height: 0, opacity: 0 }}
                       className="border-t border-spa-taupe/40 bg-spa-cream/10"
                     >
-                      <div className="p-6 text-sm text-spa-clay font-light leading-relaxed space-y-2">
+                      <div className="p-6 text-sm text-spa-clay-text font-light leading-relaxed space-y-2">
                         {Array.isArray(faq.answer) ? (
                           faq.answer.map((ans, idx) => (
                             <p key={idx}>{ans}</p>
@@ -1024,14 +1034,14 @@ export default function App() {
             >
               <button 
                 onClick={() => setIsTherapistModalOpen(false)}
-                className="absolute top-4 right-4 text-spa-clay hover:text-spa-charcoal"
+                className="absolute top-4 right-4 text-spa-clay-text hover:text-spa-charcoal"
               >
                 <X className="w-5 h-5" />
               </button>
 
               <div className="space-y-4 mb-6">
                 <h3 className="font-serif text-2xl text-spa-charcoal">Join the SMM Therapist Collective</h3>
-                <p className="text-xs text-spa-clay leading-normal">
+                <p className="text-xs text-spa-clay-text leading-normal">
                   Are you a certified, highly professional massage therapist? Provide your contact details and specialty to join Nigeria's premium hybrid spa crew.
                 </p>
               </div>
@@ -1040,7 +1050,7 @@ export default function App() {
                 <div className="py-8 text-center space-y-3">
                   <CheckCircle2 className="w-12 h-12 text-spa-gold mx-auto animate-bounce" />
                   <h4 className="font-serif text-lg font-bold text-spa-charcoal">Application Submitted!</h4>
-                  <p className="text-xs text-spa-clay">Our head clinical coordinator will reach out within 48 hours.</p>
+                  <p className="text-xs text-spa-clay-text">Our head clinical coordinator will reach out within 48 hours.</p>
                 </div>
               ) : (
                 <form onSubmit={handleTherapistSubmit} className="space-y-4 text-xs">
@@ -1155,9 +1165,8 @@ export default function App() {
                 Premium walks-in day spa sanctuary & custom on-demand in-home mobile therapies. Qualified hands selected to work strictly on your terms.
               </p>
               <div className="pt-2 flex gap-4 text-spa-linen/80">
-                <a href="https://facebook.com" className="hover:text-spa-gold transition-colors"><Facebook className="w-4 h-4" /></a>
-                <a href="https://www.instagram.com/oges.vlog_spa/" target="_blank" rel="noopener noreferrer" className="hover:text-spa-gold transition-colors"><Instagram className="w-4 h-4" /></a>
-                <a href="https://twitter.com" className="hover:text-spa-gold transition-colors"><Twitter className="w-4 h-4" /></a>
+                {/* Only the spa's own Instagram: the Facebook and X icons linked to those sites' home pages, not to SMM. */}
+                <a href="https://www.instagram.com/oges.vlog_spa/" target="_blank" rel="noopener noreferrer" aria-label="SMM on Instagram" className="hover:text-spa-gold transition-colors"><Instagram className="w-4 h-4" aria-hidden="true" /></a>
                 <a href="https://t.me/sweet_mobile_massage" target="_blank" rel="noopener noreferrer" aria-label="Telegram" className="hover:text-spa-gold transition-colors"><Send className="w-4 h-4" /></a>
               </div>
             </div>
@@ -1179,20 +1188,28 @@ export default function App() {
             <div className="md:col-span-3 space-y-4 text-xs">
               <h4 className="uppercase tracking-widest font-semibold text-spa-gold text-[10px]">Contact Info</h4>
               <ul className="space-y-2.5 font-light text-spa-linen/80">
-                <li className="flex items-center gap-2">
-                  <Mail className="w-3.5 h-3.5 text-spa-gold flex-shrink-0" />
-                  <a href="mailto:ogebestie7@gmail.com" className="hover:text-spa-gold transition-colors">ogebestie7@gmail.com</a>
-                </li>
-                <li className="flex items-center gap-2">
+                {contact.email && (
+                  <li className="flex items-center gap-2">
+                    <Mail className="w-3.5 h-3.5 text-spa-gold flex-shrink-0" />
+                    <a href={`mailto:${contact.email}`} className="hover:text-spa-gold transition-colors">{contact.email}</a>
+                  </li>
+                )}
+                <li className="flex items-center gap-2 flex-wrap">
                   <Phone className="w-3.5 h-3.5 text-spa-gold flex-shrink-0" />
-                  <a href={`tel:${PHONE_E164}`} className="hover:text-spa-gold transition-colors">{PHONE_DISPLAY}</a>
-                  <span className="text-spa-linen/40">/</span>
-                  <a href="tel:+2347066672648" className="hover:text-spa-gold transition-colors">0706 672 648</a>
+                  <a href={`tel:${contact.phone.tel}`} className="hover:text-spa-gold transition-colors">{contact.phone.display}</a>
+                  {contact.phoneSecondary && (
+                    <>
+                      <span className="text-spa-linen/40">/</span>
+                      <a href={`tel:${contact.phoneSecondary.tel}`} className="hover:text-spa-gold transition-colors">{contact.phoneSecondary.display}</a>
+                    </>
+                  )}
                 </li>
-                <li className="flex items-start gap-2 leading-relaxed">
-                  <MapPin className="w-3.5 h-3.5 text-spa-gold flex-shrink-0 mt-0.5" />
-                  <span>9B Oki Lane, Mende, Maryland, Lagos.</span>
-                </li>
+                {contact.address && (
+                  <li className="flex items-start gap-2 leading-relaxed">
+                    <MapPin className="w-3.5 h-3.5 text-spa-gold flex-shrink-0 mt-0.5" />
+                    <span>{contact.address}</span>
+                  </li>
+                )}
               </ul>
             </div>
 
@@ -1215,7 +1232,7 @@ export default function App() {
 
           </div>
 
-          <div className="border-t border-white/5 mt-16 pt-8 text-center text-[10px] text-spa-linen/40 flex flex-col sm:flex-row justify-between items-center gap-4">
+          <div className="border-t border-white/5 mt-16 pt-8 text-center text-[10px] text-spa-linen/60 flex flex-col sm:flex-row justify-between items-center gap-4">
             <p>Copyright © 2026 SMM (Sweet Mobile Massage and Spa). All Rights Reserved.</p>
             <p className="font-light">
               Designed with 🤍 for a Premium Sensory Experience

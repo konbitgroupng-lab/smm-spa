@@ -31,6 +31,8 @@ export interface GalleryItem {
   title: string;
   category: 'sanctuary' | 'treatments' | 'therapy';
   imageUrl: string;
+  /** Description for screen readers, when the picture has one; else the title is used. */
+  altText?: string;
 }
 
 export interface Testimonial {

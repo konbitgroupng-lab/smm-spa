@@ -125,7 +125,7 @@ export default function WhatsAppWidget() {
                 onChange={(e) => setMessage(e.target.value)}
                 onKeyDown={onInputKey}
                 placeholder="Type your message…"
-                className="max-h-28 min-h-11 flex-1 resize-none rounded-2xl border border-spa-taupe bg-spa-cream px-4 py-2.5 text-sm text-spa-charcoal placeholder:text-spa-clay-text/70 focus:border-[#25D366] focus:outline-none focus:ring-1 focus:ring-[#25D366]"
+                className="max-h-28 min-h-11 flex-1 resize-none rounded-2xl border border-spa-taupe bg-spa-cream px-4 py-2.5 text-sm text-spa-charcoal placeholder:text-spa-clay-text focus:border-[#25D366] focus:outline-none focus:ring-1 focus:ring-[#25D366]"
               />
               <button
                 type="submit"
