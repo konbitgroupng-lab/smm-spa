@@ -80,6 +80,25 @@ export const ACTION_LABEL: Record<string, string> = {
   'catalogue.therapist_services_changed': 'Therapist treatments changed',
   'catalogue.zone_created': 'Area created',
   'catalogue.zone_updated': 'Area updated',
+  'content.faq_created': 'FAQ added',
+  'content.faq_updated': 'FAQ edited',
+  'content.faq_deleted': 'FAQ deleted',
+  'content.testimonial_created': 'Testimonial added',
+  'content.testimonial_updated': 'Testimonial edited',
+  'content.testimonial_deleted': 'Testimonial deleted',
+  'content.gallery_item_created': 'Gallery picture added',
+  'content.gallery_item_updated': 'Gallery picture edited',
+  'content.gallery_deleted': 'Gallery picture deleted',
+  'content.announcement_created': 'Announcement added',
+  'content.announcement_updated': 'Announcement edited',
+  'content.announcement_deleted': 'Announcement deleted',
+  'content.site_content_updated': 'Website text updated',
+  'content.published': 'Shown on the website',
+  'content.unpublished': 'Taken off the website',
+  'content.reordered': 'Order changed',
+  'content.media_added': 'Picture uploaded',
+  'content.media_updated': 'Picture description changed',
+  'content.media_removed': 'Picture removed from the library',
 };
 
 export const ENTITY_LABEL: Record<string, string> = {
@@ -87,6 +106,8 @@ export const ENTITY_LABEL: Record<string, string> = {
   therapists: 'Therapist', therapist_services: 'Therapist treatments', therapist_schedules: 'Shift', therapist_breaks: 'Break',
   therapist_time_off: 'Time off', blackout_dates: 'Closure', business_hours: 'Opening hours', business_settings: 'Settings',
   services: 'Treatment', service_package_items: 'Package contents', dispatch_zones: 'In-home area',
+  faqs: 'FAQ', testimonials: 'Testimonial', gallery_items: 'Gallery picture', announcements: 'Announcement',
+  site_content: 'Website text', media_assets: 'Picture',
 };
 
 export const PAYMENT_STATUS_LABEL: Record<string, string> = {

@@ -76,12 +76,12 @@ describe('signing in', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Sign in' }));
     const nav = await screen.findByRole('navigation', { name: 'Staff sections' });
     expect(within(nav).getAllByRole('link').map((a) => a.textContent)).toEqual([
-      'Today', 'Bookings', 'Customers', 'Schedules', 'Services & therapists', 'Payments', 'Staff accounts', 'Settings', 'Activity log', 'My account',
+      'Today', 'Bookings', 'Customers', 'Schedules', 'Services & therapists', 'Payments', 'Website', 'Staff accounts', 'Settings', 'Activity log', 'My account',
     ]);
   });
 
   it.each([
-    ['admin', ['Today', 'Bookings', 'Customers', 'Schedules', 'Services & therapists', 'Payments', 'Settings', 'Activity log', 'My account']],
+    ['admin', ['Today', 'Bookings', 'Customers', 'Schedules', 'Services & therapists', 'Payments', 'Website', 'Settings', 'Activity log', 'My account']],
     ['therapist', ['My agenda', 'My account']],
   ] as const)('%s sees only their sections', async (role, labels) => {
     const backend = new FakeBackend();

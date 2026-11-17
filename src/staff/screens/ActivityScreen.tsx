@@ -15,6 +15,7 @@ const AREAS: { id: string; label: string; types: string[] | null }[] = [
   { id: 'schedule', label: 'Schedules and booking rules', types: ['business_hours', 'therapist_schedules', 'therapist_breaks', 'therapist_time_off', 'blackout_dates', 'business_settings'] },
   { id: 'catalogue', label: 'Treatments, therapists and areas', types: ['services', 'service_package_items', 'therapists', 'therapist_services', 'dispatch_zones'] },
   { id: 'staff', label: 'Staff accounts', types: ['profiles'] },
+  { id: 'website', label: 'Website content', types: ['faqs', 'testimonials', 'gallery_items', 'announcements', 'site_content', 'media_assets'] },
 ];
 const PAGE = 50;
 
@@ -35,7 +36,7 @@ export function ActivityScreen({ ops, route }: { ops: StaffOps; route: Route }) 
   return (
     <div>
       <PageTitle>Activity log</PageTitle>
-      <p className="text-sm -mt-4 mb-4">Every change to bookings, customers, payments, schedules, the catalogue and staff accounts, whether made by staff or by the booking system. Nobody can edit or delete these entries. Personal details are shown only as "changed".</p>
+      <p className="text-sm -mt-4 mb-4">Every change to bookings, customers, payments, schedules, the catalogue, staff accounts and website content, whether made by staff or by the booking system. Nobody can edit or delete these entries. Personal details are shown only as "changed".</p>
       <div className="max-w-sm">
         <SelectField label="Show" value={area.id} onChange={(v) => navigate(href('activity', [], { area: v === 'all' ? null : v }))}
           options={AREAS.map((a) => ({ value: a.id, label: a.label }))} />

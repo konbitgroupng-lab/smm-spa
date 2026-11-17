@@ -236,3 +236,54 @@ describe('payments, refunds and staff end to end (5d)', () => {
     await owner.updatePaymentSettings(back.updatedAt, { onlinePaymentEnabled: true, paymentMode: 'full', depositPercent: 50 }, 'Back to full');
   });
 });
+describe('website content end to end (6b)', () => {
+  it('contact details, FAQs, gallery, testimonials and announcements round-trip through the real content functions', async () => {
+    const ops = await signedIn('admin@example.com');
+    let c = await ops.content();
+    expect(c.contact.updatedAt).not.toBeNull();
+
+    // Contact details replace the block; an out-of-date version is refused.
+    await ops.saveContact(c.contact.updatedAt, { address: 'Maryland, Lagos', phone: '+234 811 859 9365', whatsapp: '+2348118599365', email: null });
+    const stale = c.contact.updatedAt;
+    c = await ops.content();
+    expect(c.contact).toMatchObject({ isPublished: true, value: { address: 'Maryland, Lagos', phone: '+234 811 859 9365', whatsapp: '+2348118599365', email: null } });
+    expect((await failure(ops.saveContact(stale, { phone: '+234 811 859 9365' }))).code).toBe('stale_record');
+    expect((await failure(ops.saveContact(c.contact.updatedAt, { phone: 'call us' }))).code).toBe('invalid_content');
+
+    // A new FAQ starts hidden; shown, moved to the top, hidden again, deleted with a reason.
+    const { id } = await ops.saveFaq(null, null, { question: 'Do you come to my home?', answer: ['Yes.', 'A travel fee applies.'] });
+    c = await ops.content();
+    let faq = c.faqs.find((f) => f.id === id)!;
+    expect(faq).toMatchObject({ isPublished: false, answer: ['Yes.', 'A travel fee applies.'] });
+    await ops.setPublished('faq', id, true, faq.updatedAt);
+    await ops.reorder('faq', [id, ...c.faqs.filter((f) => f.id !== id).map((f) => f.id)]);
+    c = await ops.content();
+    expect(c.faqs[0]).toMatchObject({ id, isPublished: true });
+    faq = c.faqs[0];
+    expect((await failure(ops.deleteContent('faq', id, 'Not needed', faq.updatedAt))).code).toBe('still_published');
+    await ops.setPublished('faq', id, false, faq.updatedAt);
+    faq = (await ops.content()).faqs.find((f) => f.id === id)!;
+    await ops.deleteContent('faq', id, 'Not needed', faq.updatedAt);
+    expect((await ops.content()).faqs.some((f) => f.id === id)).toBe(false);
+
+    // Gallery item with a built-in picture; testimonial; announcement with dates.
+    const g = await ops.saveGalleryItem(null, null, { title: 'Treatment room', category: 'sanctuary', imageUrl: '/assets/images/room.jpg', imageMediaId: null });
+    const t = await ops.saveTestimonial(null, null, { authorName: 'Tunde A.', authorLocation: 'Ikeja', body: 'Calm, professional and on time.', rating: 4, serviceId: null });
+    const a = await ops.saveAnnouncement(null, null, { kind: 'promotion', title: 'December offer', body: '', startsAt: '2026-12-01T00:00:00+01:00', endsAt: '2026-12-31T23:59:00+01:00' });
+    c = await ops.content();
+    expect(c.gallery.find((x) => x.id === g.id)).toMatchObject({ previewUrl: '/assets/images/room.jpg', imageMediaId: null, isPublished: false });
+    expect(c.testimonials.find((x) => x.id === t.id)).toMatchObject({ authorName: 'Tunde A.', rating: 4, isPublished: false });
+    const ann = c.announcements.find((x) => x.id === a.id)!;
+    expect(ann.kind).toBe('promotion');
+    expect(new Date(ann.endsAt!).toISOString()).toBe('2026-12-31T22:59:00.000Z');
+    expect((await failure(ops.saveGalleryItem(null, null, { title: 'Bad', category: 'sanctuary', imageUrl: 'https://evil.example/x.jpg', imageMediaId: null }))).code).toBe('invalid_content');
+
+    // The homepage heading starts unpublished and can be saved hidden.
+    await ops.saveHero(c.hero.updatedAt, { heading: 'Calm, on your terms', subheading: null }, false);
+    expect((await ops.content()).hero).toMatchObject({ isPublished: false, value: { heading: 'Calm, on your terms', subheading: null } });
+
+    const therapist = await signedIn('therapist@example.com');
+    expect((await failure(therapist.content())).code).toBe('not_authorized');
+    expect((await failure(therapist.saveFaq(null, null, { question: 'Sneaky question?', answer: ['No.'] }))).code).toBe('not_authorized');
+  });
+});

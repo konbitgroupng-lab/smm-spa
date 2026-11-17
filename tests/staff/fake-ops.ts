@@ -3,6 +3,7 @@ import type {
   AgendaItem, AppointmentDetail, AppointmentRow, BookingOptions, Catalogue, ConflictRow, CustomerDetail, CustomerRow, Dashboard,
   PaymentDetail, PaymentRow, ScheduleOverview, Settings, StaffList, StaffOps, AuditEntry,
 } from '../../src/staff/lib/ops';
+import type { SiteContent } from '../../src/staff/lib/content';
 
 // A scripted StaffOps for screen tests. Each method is a vi.fn returning the
 // fixtures below; tests override them as needed. What each role may do is
@@ -181,6 +182,32 @@ export function auditEntries(count = 3, startId = 100): AuditEntry[] {
     reason: 'Guest called', context: {},
   }));
 }
+export function siteContent(): SiteContent {
+  return {
+    faqs: [
+      { id: 'faq-1', question: 'How long is a session?', answer: ['Sixty minutes.'], sortOrder: 1, isPublished: true, updatedAt: V1 },
+      { id: 'faq-2', question: 'What should I wear?', answer: ['Something loose.', 'You are draped throughout.'], sortOrder: 2, isPublished: false, updatedAt: V1 },
+    ],
+    testimonials: [{
+      id: 'tm-1', authorName: 'Adaeze O.', authorLocation: 'Lekki', body: 'A wonderful, calm session.', rating: 5, serviceId: null, serviceName: null,
+      sortOrder: 1, isPublished: false, updatedAt: V1,
+    }],
+    gallery: [
+      { id: 'g-1', title: 'Sanctuary room', category: 'sanctuary', imageUrl: '/assets/images/room.jpg', imageMediaId: null, previewUrl: '/assets/images/room.jpg', sortOrder: 1, isPublished: true, updatedAt: V1 },
+      { id: 'g-2', title: 'Hot stones', category: 'treatments', imageUrl: null, imageMediaId: 'm-1', previewUrl: 'https://x.test/m1.jpg', sortOrder: 2, isPublished: true, updatedAt: V1 },
+    ],
+    announcements: [],
+    contact: { key: 'contact', value: { address: 'Maryland, Lagos', phone: '+234 811 859 9365', whatsapp: '+234 811 859 9365', email: null }, isPublished: true, updatedAt: V1 },
+    hero: { key: 'homepage.hero', value: null, isPublished: false, updatedAt: null },
+    media: [
+      { id: 'm-1', path: 'gallery/m1.jpg', url: 'https://x.test/m1.jpg', altText: 'Hot stones on a back', mimeType: 'image/jpeg', sizeBytes: 120000,
+        width: 1200, height: 800, createdAt: '2026-11-17T09:00:00Z', updatedAt: V1, uses: 1 },
+      { id: 'm-2', path: 'site/m2.jpg', url: 'https://x.test/m2.jpg', altText: '', mimeType: 'image/jpeg', sizeBytes: 90000,
+        width: null, height: null, createdAt: '2026-11-17T09:00:00Z', updatedAt: V1, uses: 0 },
+    ],
+  };
+}
+
 export function fakeOps(): { [K in keyof StaffOps]: ReturnType<typeof vi.fn> } & StaffOps {
   return {
     dashboard: vi.fn(async () => DASHBOARD),
@@ -229,5 +256,18 @@ export function fakeOps(): { [K in keyof StaffOps]: ReturnType<typeof vi.fn> } &
     setStaffActive: vi.fn(async () => {}),
     linkTherapist: vi.fn(async () => {}),
     inviteStaff: vi.fn(async () => ({ profileId: 'staff-new' })),
+    content: vi.fn(async () => siteContent()),
+    saveFaq: vi.fn(async () => ({ id: 'faq-new' })),
+    saveTestimonial: vi.fn(async () => ({ id: 'tm-new' })),
+    saveGalleryItem: vi.fn(async () => ({ id: 'g-new' })),
+    saveAnnouncement: vi.fn(async () => ({ id: 'an-new' })),
+    saveContact: vi.fn(async () => {}),
+    saveHero: vi.fn(async () => {}),
+    setPublished: vi.fn(async () => {}),
+    reorder: vi.fn(async () => {}),
+    deleteContent: vi.fn(async () => {}),
+    uploadMedia: vi.fn(async () => ({ id: 'm-new' })),
+    updateMedia: vi.fn(async () => {}),
+    removeMedia: vi.fn(async () => {}),
   } as any;
 }

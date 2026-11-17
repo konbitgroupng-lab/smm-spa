@@ -15,6 +15,7 @@ import { PaymentsScreen } from './screens/PaymentsScreen';
 import { SchedulesScreen } from './screens/SchedulesScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
 import { StaffAccountsScreen } from './screens/StaffAccountsScreen';
+import { WebsiteScreen } from './screens/WebsiteScreen';
 import { sectionFromHash, sectionsFor, type Section } from './sections';
 
 export function StaffShell({ backend, ops, who, role, email, onRefresh, onSignOut }: {
@@ -113,6 +114,8 @@ function Screen({ section, route, backend, ops, who, role, email, onRefresh }: {
       return <CatalogueScreen ops={ops} route={route} />;
     case 'payments':
       return <PaymentsScreen ops={ops} route={route} role={role} />;
+    case 'website':
+      return <WebsiteScreen ops={ops} route={route} />;
     case 'staff':
       return <StaffAccountsScreen ops={ops} route={route} selfId={who.userId} />;
     case 'settings':

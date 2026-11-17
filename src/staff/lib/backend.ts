@@ -128,6 +128,19 @@ const MESSAGES: Record<string, string> = {
   already_registered: 'This email already has an account.',
   invalid_invitation: 'Check the email address and give a name.',
   invite_failed: 'The invitation could not be sent. Check the email settings, then try again.',
+  // Website content (Phase 6b)
+  invalid_content: 'Check the details: something is missing or too long.',
+  still_published: 'Take this off the website before deleting it.',
+  picture_required: 'Choose a picture from the library, or upload one.',
+  media_not_found: 'That picture is no longer in the library. Choose another.',
+  media_in_use: 'This picture is still used on the website. Change or delete what uses it first.',
+  media_exists: 'This picture is already in the library.',
+  invalid_media: 'The picture description is too long, or the file is not valid.',
+  media_not_uploaded: 'The upload did not finish. Try again.',
+  unsupported_type: 'Only JPEG, PNG, WebP or AVIF pictures can be uploaded.',
+  too_large: 'The picture is too large. The limit is 5 MB.',
+  upload_failed: 'The picture could not be uploaded. Try again.',
+  server_error: 'Something went wrong on the server. Try again.',
 };
 
 /** Why a time is outside the booking rules (schedule_rule / slot_unavailable details). */

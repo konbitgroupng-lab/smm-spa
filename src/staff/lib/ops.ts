@@ -1,5 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { supabaseUrl } from '../../lib/env';
 import { dbError, StaffError } from './backend';
+import { mediaUrl, type ContentOps, type SiteBlock, type SiteContent } from './content';
 
 // Appointment and customer operations for the staff app. Every call is a
 // database function that checks the caller's role and the record's version;
@@ -458,7 +460,7 @@ export interface Settings {
   updatedAt: string;
 }
 
-export interface StaffOps {
+export interface StaffOps extends ContentOps {
   dashboard(): Promise<Dashboard>;
   appointments(from: string, to: string, therapistId?: string | null): Promise<AppointmentRow[]>;
   appointmentDetail(id: string): Promise<AppointmentDetail>;
@@ -925,17 +927,123 @@ export function createSupabaseOps(client: SupabaseClient): StaffOps {
 
     async inviteStaff(email, fullName) {
       const { data, error } = await client.functions.invoke('staff-invite', { body: { email, fullName } });
-      if (error) {
-        let code = 'invite_failed';
-        try {
-          const body = await (error as any).context?.json?.();
-          if (typeof body?.error === 'string') code = body.error;
-        } catch {
-          // keep the generic code
-        }
-        throw new StaffError(code);
-      }
+      if (error) throw await functionError(error, 'invite_failed');
       return { profileId: data.profileId };
     },
+
+    // Website content (Phase 6b)
+
+    async content() {
+      const c = await call('staff_content');
+      const block = <T,>(key: string): SiteBlock<T> => {
+        const b = (c.site_content ?? []).find((x: any) => x.key === key);
+        return { key, value: b?.value ?? null, isPublished: Boolean(b?.is_published), updatedAt: b?.updated_at ?? null };
+      };
+      const url = (bucket: string, path: string) => mediaUrl(supabaseUrl ?? '', bucket, path);
+      return {
+        faqs: c.faqs.map((f: any) => ({
+          id: f.id, question: f.question, answer: f.answer ?? [], sortOrder: f.sort_order, isPublished: f.is_published, updatedAt: f.updated_at,
+        })),
+        testimonials: c.testimonials.map((t: any) => ({
+          id: t.id, authorName: t.author_name, authorLocation: t.author_location, body: t.body, rating: t.rating,
+          serviceId: t.service_id, serviceName: t.service_name, sortOrder: t.sort_order, isPublished: t.is_published, updatedAt: t.updated_at,
+        })),
+        gallery: c.gallery.map((g: any) => ({
+          id: g.id, title: g.title, category: g.category ?? '', imageUrl: g.image_url, imageMediaId: g.image_media_id,
+          previewUrl: g.media_path ? url(g.media_bucket, g.media_path) : g.image_url, sortOrder: g.sort_order,
+          isPublished: g.is_published, updatedAt: g.updated_at,
+        })),
+        announcements: c.announcements.map((a: any) => ({
+          id: a.id, kind: a.kind, title: a.title, body: a.body ?? '', startsAt: a.starts_at, endsAt: a.ends_at,
+          isPublished: a.is_published, updatedAt: a.updated_at,
+        })),
+        contact: block('contact'),
+        hero: block('homepage.hero'),
+        media: c.media.map((m: any) => ({
+          id: m.id, path: m.path, url: url(m.bucket, m.path), altText: m.alt_text ?? '', mimeType: m.mime_type,
+          sizeBytes: Number(m.size_bytes), width: m.width, height: m.height, createdAt: m.created_at, updatedAt: m.updated_at, uses: Number(m.uses),
+        })),
+      } satisfies SiteContent;
+    },
+
+    async saveFaq(id, version, f) {
+      const r = await call('staff_save_faq', { p_faq_id: id, p_expected_updated_at: version, p_fields: { question: f.question, answer: f.answer } });
+      return { id: r.id };
+    },
+
+    async saveTestimonial(id, version, t) {
+      const r = await call('staff_save_testimonial', {
+        p_testimonial_id: id, p_expected_updated_at: version,
+        p_fields: { author_name: t.authorName, author_location: t.authorLocation, body: t.body, rating: t.rating, service_id: t.serviceId ?? '' },
+      });
+      return { id: r.id };
+    },
+
+    async saveGalleryItem(id, version, g) {
+      const r = await call('staff_save_gallery_item', {
+        p_item_id: id, p_expected_updated_at: version,
+        p_fields: { title: g.title, category: g.category, image_url: g.imageUrl ?? '', image_media_id: g.imageMediaId ?? '' },
+      });
+      return { id: r.id };
+    },
+
+    async saveAnnouncement(id, version, a) {
+      const r = await call('staff_save_announcement', {
+        p_announcement_id: id, p_expected_updated_at: version,
+        p_fields: { kind: a.kind, title: a.title, body: a.body, starts_at: a.startsAt ?? '', ends_at: a.endsAt ?? '' },
+      });
+      return { id: r.id };
+    },
+
+    async saveContact(version, value) {
+      await call('staff_save_site_content', { p_key: 'contact', p_expected_updated_at: version, p_value: value, p_is_published: true });
+    },
+
+    async saveHero(version, value, published) {
+      await call('staff_save_site_content', { p_key: 'homepage.hero', p_expected_updated_at: version, p_value: value, p_is_published: published });
+    },
+
+    async setPublished(kind, id, published, version) {
+      await call('staff_set_content_published', { p_kind: kind, p_id: id, p_published: published, p_expected_updated_at: version });
+    },
+
+    async reorder(kind, ids) {
+      await call('staff_reorder_content', { p_kind: kind, p_ids: ids });
+    },
+
+    async deleteContent(kind, id, reason, version) {
+      await call('staff_delete_content', { p_kind: kind, p_id: id, p_reason: reason, p_expected_updated_at: version });
+    },
+
+    async uploadMedia(file, folder, altText) {
+      const form = new FormData();
+      form.append('file', file);
+      form.append('folder', folder);
+      form.append('alt_text', altText);
+      const { data, error } = await client.functions.invoke('staff-media', { body: form });
+      if (error) throw await functionError(error, 'upload_failed');
+      return { id: data.id };
+    },
+
+    async updateMedia(id, version, altText) {
+      await call('staff_update_media', { p_media_id: id, p_expected_updated_at: version, p_alt_text: altText });
+    },
+
+    async removeMedia(id, reason, version) {
+      const { error } = await client.functions.invoke('staff-media', { body: { action: 'remove', mediaId: id, reason, expectedUpdatedAt: version } });
+      if (error) throw await functionError(error, 'server_error');
+    },
   };
+}
+
+/** An Edge Function refusal: its JSON body names the reason. */
+async function functionError(error: unknown, fallback: string): Promise<StaffError> {
+  let code = fallback;
+  try {
+    const body = await (error as any).context?.json?.();
+    if (typeof body?.error === 'string') code = body.error;
+  } catch {
+    // keep the fallback code
+  }
+  return new StaffError(code);
 }

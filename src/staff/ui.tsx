@@ -129,7 +129,7 @@ const BUTTON_TONES = {
   danger: 'bg-red-800 text-white hover:bg-red-900 border border-red-800',
 } as const;
 
-export function Button({ children, tone = 'secondary', type = 'button', busy, disabled, onClick, className = '' }: {
+export function Button({ children, tone = 'secondary', type = 'button', busy, disabled, onClick, className = '', label }: {
   children: ReactNode;
   tone?: keyof typeof BUTTON_TONES;
   type?: 'button' | 'submit';
@@ -137,10 +137,13 @@ export function Button({ children, tone = 'secondary', type = 'button', busy, di
   disabled?: boolean;
   onClick?: () => void;
   className?: string;
+  /** Accessible name, when the visible content is only a symbol. */
+  label?: string;
 }) {
   return (
     <button
       type={type}
+      aria-label={label}
       onClick={onClick}
       disabled={busy || disabled}
       aria-busy={busy || undefined}
