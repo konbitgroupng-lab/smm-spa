@@ -54,7 +54,7 @@ export default function VideoGalleryPreview() {
             href={videoPageUrl()}
             className={`inline-flex min-h-11 items-center gap-2 rounded border border-spa-charcoal px-7 py-3 text-xs font-bold uppercase tracking-widest text-spa-charcoal transition-colors hover:bg-spa-charcoal hover:text-spa-cream ${focusRing}`}
           >
-            View the full gallery
+            View the full gallery{' '}
             <span>({videoGalleryData.length} videos)</span>
             <ArrowRight className="h-4 w-4" aria-hidden="true" />
           </a>

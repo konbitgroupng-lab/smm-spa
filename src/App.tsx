@@ -48,10 +48,10 @@ import {
   Service,
   Therapist,
   FAQItem,
-  GalleryItem,
   Testimonial
 } from './data';
 import VideoGalleryPreview from './videos/VideoGalleryPreview';
+import GalleryPreview from './gallery/GalleryPreview';
 import { contactDetails, whatsappUrl } from './config/business';
 import { BUILT_IN_CONTENT, type SiteContent } from './content/useSiteContent';
 import AnnouncementStrip from './content/AnnouncementStrip';
@@ -123,10 +123,6 @@ export default function App({ content = BUILT_IN_CONTENT }: { content?: SiteCont
   // Treatments and packages for the cards (database catalogue, static fallback)
   const siteCatalog = useSiteCatalog();
 
-  // Gallery Filters & Lightbox
-  const [activeGalleryFilter, setActiveGalleryFilter] = useState<'all' | 'sanctuary' | 'treatments' | 'therapy'>('all');
-  const [activeLightboxImage, setActiveLightboxImage] = useState<GalleryItem | null>(null);
-
   // Accordion FAQ State
   const [expandedFaq, setExpandedFaq] = useState<string | null>(null);
 
@@ -194,10 +190,6 @@ export default function App({ content = BUILT_IN_CONTENT }: { content?: SiteCont
     }, 2000);
   };
 
-  // Filter gallery items
-  const filteredGallery = activeGalleryFilter === 'all'
-    ? gallery
-    : gallery.filter(item => item.category === activeGalleryFilter);
 
   // Filter service items by tab
   const filteredServices = activeSection === 'all'
@@ -728,125 +720,7 @@ export default function App({ content = BUILT_IN_CONTENT }: { content?: SiteCont
         </div>
       </section>
 
-      {/* Tranquil Photo Gallery - Interactive Filterable Carousel */}
-      <section id="gallery" className="py-24 bg-spa-linen border-t border-spa-taupe relative">
-        <div className="max-w-7xl mx-auto px-6">
-          
-          {/* Section Header */}
-          <div className="text-center max-w-2xl mx-auto space-y-4 mb-16">
-            <Eyebrow>Tranquility Captured</Eyebrow>
-            <h2 className="font-serif text-3xl md:text-5xl text-spa-charcoal"><span className="italic">Sanctuary</span> Gallery</h2>
-            <div className="w-12 h-[1px] bg-spa-gold mx-auto mt-4"></div>
-            <p className="text-spa-clay-text text-sm font-light mt-4">
-              A peaceful visual journey through our boutique treatment rooms, therapeutic hot stone arrangements, and organic aromatherapy rituals.
-            </p>
-          </div>
-
-          {/* Gallery Filter Tabs */}
-          <div className="flex justify-center items-center gap-2 sm:gap-4 mb-12 flex-wrap">
-            {[
-              { id: 'all', label: 'View All' },
-              { id: 'sanctuary', label: 'Boutique Sanctuary' },
-              { id: 'treatments', label: 'Therapies' },
-              { id: 'therapy', label: 'Botanicals & Oils' }
-            ].map((tab) => (
-              <button 
-                key={tab.id}
-                onClick={() => setActiveGalleryFilter(tab.id as any)}
-                className={`px-5 py-2 rounded-full text-xs uppercase tracking-widest font-bold transition-all border ${
-                  activeGalleryFilter === tab.id 
-                    ? 'bg-spa-charcoal border-spa-charcoal text-white shadow-md' 
-                    : 'bg-white hover:bg-spa-linen border-spa-taupe text-spa-clay-text'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Gallery Grid */}
-          <motion.div 
-            layout 
-            className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6"
-          >
-            <AnimatePresence mode="popLayout">
-              {filteredGallery.map((item) => (
-                <motion.div 
-                  layout
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.9 }}
-                  transition={{ duration: 0.4 }}
-                  key={item.id}
-                  onClick={() => setActiveLightboxImage(item)}
-                  className="group relative cursor-pointer overflow-hidden border border-spa-taupe bg-white p-1.5 sm:p-2 rounded shadow-sm hover:shadow-2xl transition-all duration-300"
-                >
-                  <div className="relative h-36 sm:h-72 overflow-hidden rounded-sm">
-                    <img 
-                      src={item.imageUrl} 
-                      alt={item.altText || item.title} 
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 brightness-95"
-                      loading="lazy"
-                      decoding="async"
-                      referrerPolicy="no-referrer"
-                    />
-                    {/* Hover state content */}
-                    <div className="absolute inset-0 bg-spa-charcoal/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
-                      <span className="text-white text-xs uppercase tracking-widest font-bold border border-white/50 px-4 py-2 rounded backdrop-blur-sm">
-                        Expand Photo
-                      </span>
-                    </div>
-                  </div>
-                  <div className="pt-2 sm:pt-4 pb-1 sm:pb-2 px-1 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-0.5">
-                    <span className="font-serif text-sm sm:text-base text-spa-charcoal font-medium leading-snug">{item.title}</span>
-                    <span className="text-[10px] uppercase tracking-wider text-spa-gold-dark font-bold capitalize">
-                      {item.category}
-                    </span>
-                  </div>
-                </motion.div>
-              ))}
-            </AnimatePresence>
-          </motion.div>
-
-        </div>
-      </section>
-
-      {/* LIGHTBOX MODAL */}
-      <AnimatePresence>
-        {activeLightboxImage && (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-spa-charcoal/95 backdrop-blur-md z-50 flex items-center justify-center p-4 sm:p-8"
-          >
-            <button 
-              onClick={() => setActiveLightboxImage(null)}
-              className="absolute top-6 right-6 text-white hover:text-spa-gold transition-colors p-2 bg-white/5 rounded-full"
-            >
-              <X className="w-6 h-6" />
-            </button>
-
-            <motion.div 
-              initial={{ scale: 0.95 }}
-              animate={{ scale: 1 }}
-              exit={{ scale: 0.95 }}
-              className="max-w-4xl w-full flex flex-col gap-4 text-center"
-            >
-              <img 
-                src={activeLightboxImage.imageUrl} 
-                alt={activeLightboxImage.title} 
-                className="max-h-[75vh] w-auto mx-auto object-contain rounded shadow-2xl border border-white/10"
-                referrerPolicy="no-referrer"
-              />
-              <div className="space-y-1">
-                <h3 className="font-serif text-2xl text-white font-medium">{activeLightboxImage.title}</h3>
-                <p className="text-spa-gold text-xs uppercase tracking-widest font-bold capitalize">{activeLightboxImage.category}</p>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <GalleryPreview gallery={gallery} />
 
       <VideoGalleryPreview />
 

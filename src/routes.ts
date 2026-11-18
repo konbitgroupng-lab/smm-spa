@@ -4,6 +4,7 @@
 //   ?view=payment-return&reference=...       booking confirmation (where the checkout returns)
 //   ?view=demo-checkout&reference=...        the demo payment provider's checkout (development)
 //   ?view=videos[&v=<clip id>]                the Video Gallery page
+//   ?view=photos[&p=<photo id>]               the Photo Gallery page (optionally opened on one photo)
 //   ?view=transfer&token=<uuid>              a booking paid by bank transfer (the guest's own page)
 //   ?view=prices                             the full price list
 //
@@ -15,11 +16,14 @@ export type View =
   | { page: 'demo-checkout'; reference: string }
   | { page: 'payment-return'; reference: string }
   | { page: 'videos'; videoId: string | null }
+  | { page: 'photos'; photoId: string | null }
   | { page: 'transfer'; token: string }
   | { page: 'prices' };
 
 const REFERENCE = /^[A-Za-z0-9.=-]{8,100}$/;
 const VIDEO_ID = /^[a-z0-9-]{1,60}$/;
+/** Built-in photos have ids like gal-1; the owner's are database ids (UUIDs). */
+const PHOTO_ID = /^[A-Za-z0-9-]{1,64}$/;
 const TOKEN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** The full price list page. */
@@ -43,6 +47,10 @@ export function resolveView(search: string): View {
   if (view === 'videos') {
     const v = params.get('v') ?? '';
     return { page: 'videos', videoId: VIDEO_ID.test(v) ? v : null };
+  }
+  if (view === 'photos') {
+    const p = params.get('p') ?? '';
+    return { page: 'photos', photoId: PHOTO_ID.test(p) ? p : null };
   }
   return { page: 'site' };
 }

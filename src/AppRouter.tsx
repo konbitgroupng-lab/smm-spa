@@ -4,11 +4,12 @@ import WhatsAppWidget from './components/WhatsAppWidget';
 import { useSiteContent } from './content/useSiteContent';
 import { resolveView } from './routes';
 
-// The confirmation, demo checkout and video pages load only when visited, so
+// The confirmation, demo checkout, video and photo pages load only when visited, so
 // the website's own bundle stays the same size.
 const BookingConfirmationPage = lazy(() => import('./booking/BookingConfirmationPage'));
 const DemoCheckoutPage = lazy(() => import('./prototype/DemoCheckoutPage'));
 const VideoGalleryPage = lazy(() => import('./videos/VideoGalleryPage'));
+const PhotoGalleryPage = lazy(() => import('./gallery/PhotoGalleryPage'));
 const TransferBookingPage = lazy(() => import('./booking/TransferBookingPage'));
 const PriceListPage = lazy(() => import('./pricing/PriceListPage'));
 
@@ -33,6 +34,7 @@ export default function AppRouter({ search }: { search: string }) {
         {view.page === 'payment-return' && <BookingConfirmationPage reference={view.reference} />}
         {view.page === 'demo-checkout' && <DemoCheckoutPage reference={view.reference} />}
         {view.page === 'videos' && <VideoGalleryPage videoId={view.videoId} />}
+        {view.page === 'photos' && <PhotoGalleryPage gallery={content.gallery} photoId={view.photoId} />}
         {view.page === 'transfer' && <TransferBookingPage token={view.token} />}
         {view.page === 'prices' && <PriceListPage />}
       </Suspense>
