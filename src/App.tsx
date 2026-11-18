@@ -36,7 +36,9 @@ import {
   Gift,
   Crown,
   BadgePercent,
-  Send
+  Send,
+  Play,
+  Pause
 } from 'lucide-react';
 import {
   servicesData,
@@ -55,6 +57,7 @@ import AnnouncementStrip from './content/AnnouncementStrip';
 import WhatsAppEnquiryLink from './components/WhatsAppEnquiryLink';
 import Eyebrow from './components/Eyebrow';
 import MoreDetails from './components/MoreDetails';
+import HeroVideo, { HERO_VIDEO } from './components/HeroVideo';
 import SpaBookingWidget from './components/SpaBookingWidget';
 import SiteMenu, { type SiteMenuLink } from './components/SiteMenu';
 import BookingSection from './booking/components/LazyBookingSection';
@@ -95,16 +98,20 @@ export default function App({ content = BUILT_IN_CONTENT }: { content?: SiteCont
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [activeSection, setActiveTab] = useState<'all' | 'relaxation' | 'therapeutic' | 'sensory'>('all');
 
-  // Hero Slideshow State - cycles between the sanctuary photo and two featured campaign creatives
+  // Hero Slideshow State - the sanctuary film first, then two featured campaign creatives.
+  // The film is shown once in full before the next slide; the others for 6 seconds.
+  // The guest can pause the whole banner (WCAG 2.2.2).
   const [heroSlide, setHeroSlide] = useState(0);
+  const [heroPaused, setHeroPaused] = useState(false);
   const heroSlideCount = 3;
 
   useEffect(() => {
-    const interval = setInterval(() => {
+    if (heroPaused) return;
+    const timer = setTimeout(() => {
       setHeroSlide((prev) => (prev + 1) % heroSlideCount);
-    }, 6000);
-    return () => clearInterval(interval);
-  }, []);
+    }, heroSlide === 0 ? HERO_VIDEO.durationMs : 6000);
+    return () => clearTimeout(timer);
+  }, [heroSlide, heroPaused]);
 
   // Online booking: the treatment a "Book" button preselects in the funnel
   const [bookingPreselect, setBookingPreselect] = useState<string | null>(null);
@@ -262,15 +269,12 @@ export default function App({ content = BUILT_IN_CONTENT }: { content?: SiteCont
             heroSlide === 0 ? 'opacity-100 z-[1]' : 'opacity-0 z-0 pointer-events-none'
           }`}
         >
-          <img
-            src="/assets/images/spa_hero_banner_1783345955168.jpg"
-            alt="SMM (Sweet Mobile Massage and Spa) Treatment Sanctuary"
-            className="absolute inset-0 w-full h-full object-cover scale-105 select-none brightness-[0.80] contrast-[1.05]"
-            referrerPolicy="no-referrer"
-          />
-          {/* Brand gradient wash - darkening scrim for text contrast + the flyer's signature terracotta-to-berry tint */}
-          <div className="absolute inset-0 bg-black/30"></div>
-          <div className="absolute inset-0 brand-gradient opacity-75"></div>
+          {/* A short silent film of the sanctuary (still frame for reduced motion or data saving) */}
+          <HeroVideo playing={heroSlide === 0 && !heroPaused} className="absolute inset-0 w-full h-full object-cover select-none" />
+          {/* Brand gradient wash - darkening scrim for text contrast + the flyer's signature terracotta-to-berry tint,
+              lighter than on a photo so the film shows through */}
+          <div className="absolute inset-0 bg-black/35"></div>
+          <div className="absolute inset-0 brand-gradient opacity-50 mix-blend-multiply"></div>
           <div className="hero-top-scrim" aria-hidden="true"></div>
           <div className="absolute bottom-0 left-0 w-full h-32 bg-gradient-to-t from-spa-cream to-transparent"></div>
 
@@ -389,6 +393,15 @@ export default function App({ content = BUILT_IN_CONTENT }: { content?: SiteCont
               }`}
             />
           ))}
+          <button
+            type="button"
+            onClick={() => setHeroPaused((p) => !p)}
+            aria-pressed={heroPaused}
+            aria-label={heroPaused ? 'Play the banner' : 'Pause the banner'}
+            className="ml-2 flex h-7 w-7 items-center justify-center rounded-full border border-white/50 bg-black/25 text-white hover:border-spa-gold hover:text-spa-gold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-spa-gold"
+          >
+            {heroPaused ? <Play className="h-3 w-3 fill-current" aria-hidden="true" /> : <Pause className="h-3 w-3 fill-current" aria-hidden="true" />}
+          </button>
         </div>
 
         {/* Minimal indicator */}
