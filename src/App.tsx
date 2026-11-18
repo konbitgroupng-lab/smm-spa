@@ -54,6 +54,7 @@ import { BUILT_IN_CONTENT, type SiteContent } from './content/useSiteContent';
 import AnnouncementStrip from './content/AnnouncementStrip';
 import WhatsAppEnquiryLink from './components/WhatsAppEnquiryLink';
 import Eyebrow from './components/Eyebrow';
+import MoreDetails from './components/MoreDetails';
 import SpaBookingWidget from './components/SpaBookingWidget';
 import SiteMenu, { type SiteMenuLink } from './components/SiteMenu';
 import BookingSection from './booking/components/LazyBookingSection';
@@ -524,7 +525,7 @@ export default function App({ content = BUILT_IN_CONTENT }: { content?: SiteCont
           </div>
 
           {/* Service Cards Grid - Elegant, minimal cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-12">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
             {siteCatalog.services.map((service) => (
               <div 
                 key={service.id}
@@ -532,7 +533,7 @@ export default function App({ content = BUILT_IN_CONTENT }: { content?: SiteCont
               >
                 <div>
                   {/* Service Image banner */}
-                  <div className="relative h-64 overflow-hidden">
+                  <div className="relative h-44 sm:h-56 overflow-hidden">
                     <img 
                       src={service.imageUrl} 
                       alt={service.name} 
@@ -548,33 +549,23 @@ export default function App({ content = BUILT_IN_CONTENT }: { content?: SiteCont
                   </div>
 
                   {/* Service Text Detail */}
-                  <div className="p-8 space-y-6">
-                    <div className="flex items-baseline justify-between border-b border-spa-taupe pb-4">
-                      <h3 className="font-serif text-2xl text-spa-charcoal font-medium">{service.name}</h3>
-                      <span className="text-spa-gold-dark font-serif text-2xl font-light">{service.formattedPrice}</span>
+                  <div className="p-5 sm:p-7 space-y-4">
+                    <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border-b border-spa-taupe pb-3">
+                      <h3 className="font-serif text-xl sm:text-2xl text-spa-charcoal font-medium">{service.name}</h3>
+                      <span className="text-spa-gold-dark font-serif text-xl sm:text-2xl font-light">{service.formattedPrice}</span>
                     </div>
 
                     <p className="text-sm text-spa-clay-text font-light leading-relaxed">
                       {service.description}
                     </p>
 
-                    {/* Benefits bullet points */}
-                    <div className="space-y-2 pt-2">
-                      <h4 className="text-xs uppercase tracking-wider text-spa-charcoal font-semibold">Key Benefits:</h4>
-                      <ul className="space-y-2">
-                        {service.benefits.map((benefit, i) => (
-                          <li key={i} className="flex items-start gap-2.5 text-xs text-spa-clay-text">
-                            <Check className="w-3.5 h-3.5 text-spa-gold mt-0.5 flex-shrink-0" />
-                            <span>{benefit}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
+                    {/* Benefits: folded away so the cards stay compact */}
+                    <MoreDetails label="Key benefits" items={service.benefits} />
                   </div>
                 </div>
 
                 {/* Card footer book CTA */}
-                <div className="p-8 pt-0">
+                <div className="p-5 sm:p-7 pt-0 sm:pt-0">
                   <button 
                     onClick={() => handleQuickBook(service)}
                     className="w-full bg-spa-charcoal hover:bg-spa-gold text-spa-cream hover:text-spa-charcoal py-3.5 text-xs font-bold uppercase tracking-widest transition-all duration-300 rounded border border-spa-charcoal/20"
@@ -624,7 +615,7 @@ export default function App({ content = BUILT_IN_CONTENT }: { content?: SiteCont
                   </div>
                 )}
 
-                <div className="relative h-48 overflow-hidden">
+                <div className="relative h-36 sm:h-48 overflow-hidden">
                   <img
                     src={pkg.imageUrl}
                     alt={pkg.name}
@@ -633,7 +624,7 @@ export default function App({ content = BUILT_IN_CONTENT }: { content?: SiteCont
                   />
                 </div>
 
-                <div className="p-8 space-y-5 flex-1">
+                <div className="p-5 sm:p-8 space-y-4 sm:space-y-5 flex-1">
                   <div className="space-y-1 border-b border-spa-taupe pb-4">
                     <h3 className="font-serif text-2xl text-spa-charcoal font-medium">{pkg.name}</h3>
                     <p className="text-xs text-spa-clay-text">{pkg.duration} mins total</p>
@@ -641,14 +632,7 @@ export default function App({ content = BUILT_IN_CONTENT }: { content?: SiteCont
 
                   <p className="text-sm text-spa-clay-text font-light leading-relaxed">{pkg.description}</p>
 
-                  <ul className="space-y-2">
-                    {pkg.benefits.map((benefit, i) => (
-                      <li key={i} className="flex items-start gap-2.5 text-xs text-spa-clay-text">
-                        <Check className="w-3.5 h-3.5 text-spa-gold mt-0.5 flex-shrink-0" />
-                        <span>{benefit}</span>
-                      </li>
-                    ))}
-                  </ul>
+                  <MoreDetails label="What's included" items={pkg.benefits} />
 
                   <div className="flex items-baseline gap-3 pt-2">
                     <span className="font-serif text-3xl font-semibold text-spa-gold-dark">{pkg.formattedPrice}</span>
@@ -656,7 +640,7 @@ export default function App({ content = BUILT_IN_CONTENT }: { content?: SiteCont
                   </div>
                 </div>
 
-                <div className="p-8 pt-0">
+                <div className="p-5 sm:p-8 pt-0 sm:pt-0">
                   <button
                     onClick={() => handleQuickBook(pkg)}
                     className={`w-full py-3.5 text-xs font-bold uppercase tracking-widest transition-all duration-300 rounded border ${
@@ -733,7 +717,7 @@ export default function App({ content = BUILT_IN_CONTENT }: { content?: SiteCont
           {/* Gallery Grid */}
           <motion.div 
             layout 
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
+            className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6"
           >
             <AnimatePresence mode="popLayout">
               {filteredGallery.map((item) => (
@@ -745,9 +729,9 @@ export default function App({ content = BUILT_IN_CONTENT }: { content?: SiteCont
                   transition={{ duration: 0.4 }}
                   key={item.id}
                   onClick={() => setActiveLightboxImage(item)}
-                  className="group relative cursor-pointer overflow-hidden border border-spa-taupe bg-white p-2 rounded shadow-sm hover:shadow-2xl transition-all duration-300"
+                  className="group relative cursor-pointer overflow-hidden border border-spa-taupe bg-white p-1.5 sm:p-2 rounded shadow-sm hover:shadow-2xl transition-all duration-300"
                 >
-                  <div className="relative h-64 sm:h-72 overflow-hidden rounded-sm">
+                  <div className="relative h-36 sm:h-72 overflow-hidden rounded-sm">
                     <img 
                       src={item.imageUrl} 
                       alt={item.altText || item.title} 
@@ -761,8 +745,8 @@ export default function App({ content = BUILT_IN_CONTENT }: { content?: SiteCont
                       </span>
                     </div>
                   </div>
-                  <div className="pt-4 pb-2 px-1 flex justify-between items-center">
-                    <span className="font-serif text-base text-spa-charcoal font-medium">{item.title}</span>
+                  <div className="pt-2 sm:pt-4 pb-1 sm:pb-2 px-1 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-0.5">
+                    <span className="font-serif text-sm sm:text-base text-spa-charcoal font-medium leading-snug">{item.title}</span>
                     <span className="text-[10px] uppercase tracking-wider text-spa-gold-dark font-bold capitalize">
                       {item.category}
                     </span>

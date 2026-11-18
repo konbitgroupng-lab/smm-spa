@@ -22,8 +22,9 @@ export default function VideoGalleryPreview() {
         </div>
 
         <ul className="grid grid-cols-1 sm:grid-cols-3 gap-6 lg:gap-8 max-w-sm sm:max-w-none mx-auto">
-          {featured.map((video) => (
-            <li key={video.id}>
+          {featured.map((video, i) => (
+            // Phones show one featured video; the rest are a tap away on the gallery page.
+            <li key={video.id} className={i > 0 ? 'hidden sm:block' : undefined}>
               <a href={videoPageUrl(video.id)} className={`group block rounded ${focusRing}`} aria-label={`Watch ${video.title} (${formatDuration(video.durationSeconds)})`}>
                 <div className="relative aspect-[4/5] overflow-hidden rounded bg-spa-charcoal shadow-sm transition-shadow duration-300 group-hover:shadow-2xl">
                   <img
@@ -54,7 +55,7 @@ export default function VideoGalleryPreview() {
             className={`inline-flex min-h-11 items-center gap-2 rounded border border-spa-charcoal px-7 py-3 text-xs font-bold uppercase tracking-widest text-spa-charcoal transition-colors hover:bg-spa-charcoal hover:text-spa-cream ${focusRing}`}
           >
             View the full gallery
-            <span className="hidden sm:inline">({videoGalleryData.length} videos)</span>
+            <span>({videoGalleryData.length} videos)</span>
             <ArrowRight className="h-4 w-4" aria-hidden="true" />
           </a>
         </div>
