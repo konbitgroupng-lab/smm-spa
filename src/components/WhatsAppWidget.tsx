@@ -87,7 +87,7 @@ export default function WhatsAppWidget() {
               </div>
               <div className="min-w-0 flex-1">
                 <p id={titleId} className="font-serif text-[15px] leading-snug text-white">{BUSINESS_NAME}</p>
-                <p className="mt-0.5 flex items-center gap-1.5 text-[11px] leading-tight text-spa-linen/80">
+                <p className="mt-0.5 flex items-center gap-1.5 text-xs leading-tight text-spa-linen/80">
                   <WhatsAppIcon className="h-3 w-3 text-[#25D366]" />
                   Chat with us on WhatsApp
                 </p>
@@ -135,7 +135,7 @@ export default function WhatsAppWidget() {
                 <Send className="h-4 w-4" />
               </button>
             </form>
-            <p className="bg-white px-4 pb-3 text-center text-[10px] text-spa-clay-text">Opens WhatsApp with your message ready to send.</p>
+            <p className="bg-white px-4 pb-3 text-center text-xs text-spa-clay-text">Opens WhatsApp with your message ready to send.</p>
           </motion.div>
         )}
       </AnimatePresence>

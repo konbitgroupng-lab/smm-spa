@@ -10,7 +10,7 @@ export default function WhatsAppEnquiryLink({ name, details = [], className = ''
       target="_blank"
       rel="noopener noreferrer"
       aria-label={`Ask about ${name} on WhatsApp`}
-      className={`mt-3 flex min-h-11 items-center justify-center gap-2 rounded text-[11px] font-semibold uppercase tracking-widest text-spa-clay-text transition-colors hover:text-[#128C7E] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-spa-gold-dark focus-visible:ring-offset-2 ${className}`}
+      className={`mt-3 flex min-h-11 items-center justify-center gap-2 rounded text-xs font-semibold uppercase tracking-widest text-spa-clay-text transition-colors hover:text-[#128C7E] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-spa-gold-dark focus-visible:ring-offset-2 ${className}`}
     >
       <WhatsAppIcon className="h-4 w-4 text-[#25D366]" />
       Ask on WhatsApp

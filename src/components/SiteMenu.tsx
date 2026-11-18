@@ -57,7 +57,7 @@ export default function SiteMenu({ links, open, onOpenChange }: SiteMenuProps) {
         aria-expanded={open}
         aria-controls={PANEL_ID}
         aria-label={open ? 'Close menu' : 'Open menu'}
-        className="w-10 h-10 flex items-center justify-center rounded border border-white/40 text-spa-linen hover:border-spa-gold hover:text-spa-gold transition-colors duration-200"
+        className="w-11 h-11 flex items-center justify-center rounded border border-white/40 text-spa-linen hover:border-spa-gold hover:text-spa-gold transition-colors duration-200"
       >
         {open ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
       </button>

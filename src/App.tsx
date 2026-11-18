@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { 
   motion, 
-  AnimatePresence 
+  AnimatePresence,
+  useReducedMotion
 } from 'motion/react';
 import { 
   Calendar, 
@@ -36,7 +37,9 @@ import {
   Gift,
   Crown,
   BadgePercent,
-  Send
+  Send,
+  Play,
+  Pause
 } from 'lucide-react';
 import {
   servicesData,
@@ -97,16 +100,23 @@ export default function App({ content = BUILT_IN_CONTENT }: { content?: SiteCont
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [activeSection, setActiveTab] = useState<'all' | 'relaxation' | 'therapeutic' | 'sensory'>('all');
 
-  // Hero Slideshow State - cycles between the sanctuary photo and two featured campaign creatives
+  // Hero Slideshow State - cycles between the sanctuary photo and two featured campaign creatives.
+  // It holds still while the pointer or keyboard is on it, when the guest pauses it
+  // (WCAG 2.2.2), and for guests who ask their device for less motion.
   const [heroSlide, setHeroSlide] = useState(0);
+  const [heroPaused, setHeroPaused] = useState(false);
+  const [heroHeld, setHeroHeld] = useState(false);
+  const reduceMotion = useReducedMotion();
   const heroSlideCount = 3;
+  const heroStill = heroPaused || heroHeld || reduceMotion === true;
 
   useEffect(() => {
+    if (heroStill) return;
     const interval = setInterval(() => {
       setHeroSlide((prev) => (prev + 1) % heroSlideCount);
     }, 6000);
     return () => clearInterval(interval);
-  }, []);
+  }, [heroStill]);
 
   // Online booking: the treatment a "Book" button preselects in the funnel
   const [bookingPreselect, setBookingPreselect] = useState<string | null>(null);
@@ -253,7 +263,13 @@ export default function App({ content = BUILT_IN_CONTENT }: { content?: SiteCont
       </header>
 
       {/* Hero Section - a two-slide slideshow: the sanctuary photo, then the featured campaign */}
-      <section className="relative min-h-[95vh] w-full overflow-hidden bg-spa-charcoal">
+      <section
+        className="relative min-h-[95vh] w-full overflow-hidden bg-spa-charcoal"
+        onMouseEnter={() => setHeroHeld(true)}
+        onMouseLeave={() => setHeroHeld(false)}
+        onFocus={() => setHeroHeld(true)}
+        onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setHeroHeld(false); }}
+      >
 
         {/* Slide 1: Full-bleed sanctuary photo with the primary hero copy. It stays in the
             page flow so the hero grows on short phones instead of clipping its copy; the
@@ -268,6 +284,7 @@ export default function App({ content = BUILT_IN_CONTENT }: { content?: SiteCont
             src="/assets/images/spa_hero_banner_1783345955168.jpg"
             alt="SMM (Sweet Mobile Massage and Spa) Treatment Sanctuary"
             className="absolute inset-0 w-full h-full object-cover scale-105 select-none brightness-[0.80] contrast-[1.05]"
+            fetchPriority="high"
             referrerPolicy="no-referrer"
           />
           {/* Brand gradient wash - darkening scrim for text contrast + the flyer's signature terracotta-to-berry tint */}
@@ -279,7 +296,7 @@ export default function App({ content = BUILT_IN_CONTENT }: { content?: SiteCont
           <div className="relative z-10 w-full">
             {/* Top padding clears the logo; bottom padding the slide dots (phones) or the
                 "Scroll to Begin" cue (larger screens). On tall screens the copy sits where it always did. */}
-            <div className="max-w-5xl mx-auto px-6 text-center text-spa-cream pt-28 pb-8 md:pt-32 md:pb-20">
+            <div className="max-w-5xl mx-auto px-6 text-center text-spa-cream pt-28 pb-14 md:pt-32 md:pb-20">
               <motion.div
                 initial={{ opacity: 0, y: 40 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -323,7 +340,7 @@ export default function App({ content = BUILT_IN_CONTENT }: { content?: SiteCont
                   </a>
                 </div>
 
-                <p className="text-spa-linen/60 text-[11px] sm:text-xs tracking-wide pt-1">
+                <p className="text-spa-linen/60 text-xs tracking-wide pt-1">
                   Prefer to chat? Message us on WhatsApp &mdash; most replies within minutes.
                 </p>
               </motion.div>
@@ -380,17 +397,36 @@ export default function App({ content = BUILT_IN_CONTENT }: { content?: SiteCont
         </div>
 
         {/* Slideshow dot navigation */}
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2">
+        {/* Each dot's tap area is 44px tall around the small visible dot. */}
+        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 z-20 flex items-center gap-0.5">
           {Array.from({ length: heroSlideCount }).map((_, i) => (
             <button
               key={i}
+              type="button"
               onClick={() => setHeroSlide(i)}
               aria-label={`Show hero slide ${i + 1}`}
-              className={`h-1.5 rounded-full transition-all duration-300 ${
-                heroSlide === i ? 'w-6 bg-spa-gold' : 'w-1.5 bg-white/40 hover:bg-white/70'
-              }`}
-            />
+              aria-current={heroSlide === i ? 'true' : undefined}
+              className="group flex h-11 min-w-8 items-center justify-center px-1 focus-visible:outline-none"
+            >
+              <span
+                aria-hidden="true"
+                className={`block h-1.5 rounded-full transition-all duration-300 group-focus-visible:ring-2 group-focus-visible:ring-spa-gold group-focus-visible:ring-offset-2 group-focus-visible:ring-offset-black/40 ${
+                  heroSlide === i ? 'w-6 bg-spa-gold' : 'w-1.5 bg-white/40 group-hover:bg-white/70'
+                }`}
+              />
+            </button>
           ))}
+          <button
+            type="button"
+            onClick={() => setHeroPaused((p) => !p)}
+            aria-pressed={heroPaused}
+            aria-label={heroPaused ? 'Play the slideshow' : 'Pause the slideshow'}
+            className="group flex h-11 w-11 items-center justify-center focus-visible:outline-none"
+          >
+            <span className="flex h-7 w-7 items-center justify-center rounded-full border border-white/50 bg-black/25 text-white transition-colors group-hover:border-spa-gold group-hover:text-spa-gold group-focus-visible:ring-2 group-focus-visible:ring-spa-gold">
+              {heroPaused ? <Play className="h-3 w-3 fill-current" aria-hidden="true" /> : <Pause className="h-3 w-3 fill-current" aria-hidden="true" />}
+            </span>
+          </button>
         </div>
 
         {/* Minimal indicator */}
@@ -419,7 +455,7 @@ export default function App({ content = BUILT_IN_CONTENT }: { content?: SiteCont
               <stat.icon className="w-6 h-6 text-spa-gold flex-shrink-0" />
               <div>
                 <p className="text-spa-cream text-xs sm:text-sm font-semibold leading-tight">{stat.label}</p>
-                <p className="text-spa-linen/50 text-[10px] leading-tight mt-0.5">{stat.sub}</p>
+                <p className="text-spa-linen/50 text-xs leading-tight mt-0.5">{stat.sub}</p>
               </div>
             </div>
           ))}
@@ -451,6 +487,8 @@ export default function App({ content = BUILT_IN_CONTENT }: { content?: SiteCont
                   src="/assets/images/front-desk-sign.jpg"
                   alt="SMM Spa And Massage front desk signage - Sweet Mobile Massage"
                   className="w-full h-48 object-cover object-center rounded-sm"
+                  loading="lazy"
+                  decoding="async"
                   referrerPolicy="no-referrer"
                 />
               </div>
@@ -540,6 +578,8 @@ export default function App({ content = BUILT_IN_CONTENT }: { content?: SiteCont
                       src={service.imageUrl} 
                       alt={service.name} 
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 brightness-95"
+                      loading="lazy"
+                      decoding="async"
                       referrerPolicy="no-referrer"
                     />
                     <div className="absolute top-4 left-4 bg-spa-charcoal/80 text-spa-gold text-[10px] uppercase tracking-widest px-3 py-1 rounded backdrop-blur-sm">
@@ -632,6 +672,8 @@ export default function App({ content = BUILT_IN_CONTENT }: { content?: SiteCont
                     src={exp.imageUrl}
                     alt=""
                     className="w-full h-full object-cover brightness-95"
+                    loading="lazy"
+                    decoding="async"
                     referrerPolicy="no-referrer"
                   />
                 </div>
@@ -744,6 +786,8 @@ export default function App({ content = BUILT_IN_CONTENT }: { content?: SiteCont
                       src={item.imageUrl} 
                       alt={item.altText || item.title} 
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 brightness-95"
+                      loading="lazy"
+                      decoding="async"
                       referrerPolicy="no-referrer"
                     />
                     {/* Hover state content */}
@@ -832,6 +876,8 @@ export default function App({ content = BUILT_IN_CONTENT }: { content?: SiteCont
                     src={member.imageUrl}
                     alt={member.name}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 brightness-95"
+                    loading="lazy"
+                    decoding="async"
                     referrerPolicy="no-referrer"
                   />
                 </div>
@@ -1047,7 +1093,7 @@ export default function App({ content = BUILT_IN_CONTENT }: { content?: SiteCont
               ) : (
                 <form onSubmit={handleTherapistSubmit} className="space-y-4 text-xs">
                   <div className="space-y-1">
-                    <label className="block text-[10px] uppercase tracking-wider font-bold text-spa-charcoal">Full Name</label>
+                    <label className="block text-xs uppercase tracking-wider font-bold text-spa-charcoal">Full Name</label>
                     <input 
                       type="text" 
                       required
@@ -1060,7 +1106,7 @@ export default function App({ content = BUILT_IN_CONTENT }: { content?: SiteCont
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
-                      <label className="block text-[10px] uppercase tracking-wider font-bold text-spa-charcoal">Email Address</label>
+                      <label className="block text-xs uppercase tracking-wider font-bold text-spa-charcoal">Email Address</label>
                       <input 
                         type="email" 
                         required
@@ -1071,7 +1117,7 @@ export default function App({ content = BUILT_IN_CONTENT }: { content?: SiteCont
                       />
                     </div>
                     <div className="space-y-1">
-                      <label className="block text-[10px] uppercase tracking-wider font-bold text-spa-charcoal">Phone Number</label>
+                      <label className="block text-xs uppercase tracking-wider font-bold text-spa-charcoal">Phone Number</label>
                       <input 
                         type="tel" 
                         required
@@ -1085,7 +1131,7 @@ export default function App({ content = BUILT_IN_CONTENT }: { content?: SiteCont
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
-                      <label className="block text-[10px] uppercase tracking-wider font-bold text-spa-charcoal">Primary Specialty</label>
+                      <label className="block text-xs uppercase tracking-wider font-bold text-spa-charcoal">Primary Specialty</label>
                       <select 
                         value={therapistForm.specialty}
                         onChange={(e) => setTherapistForm({...therapistForm, specialty: e.target.value})}
@@ -1098,7 +1144,7 @@ export default function App({ content = BUILT_IN_CONTENT }: { content?: SiteCont
                       </select>
                     </div>
                     <div className="space-y-1">
-                      <label className="block text-[10px] uppercase tracking-wider font-bold text-spa-charcoal">Years of Experience</label>
+                      <label className="block text-xs uppercase tracking-wider font-bold text-spa-charcoal">Years of Experience</label>
                       <select 
                         value={therapistForm.experience}
                         onChange={(e) => setTherapistForm({...therapistForm, experience: e.target.value})}
@@ -1112,7 +1158,7 @@ export default function App({ content = BUILT_IN_CONTENT }: { content?: SiteCont
                   </div>
 
                   <div className="space-y-1">
-                    <label className="block text-[10px] uppercase tracking-wider font-bold text-spa-charcoal">Brief bio & background summary</label>
+                    <label className="block text-xs uppercase tracking-wider font-bold text-spa-charcoal">Brief bio & background summary</label>
                     <textarea 
                       rows={3}
                       required
@@ -1156,44 +1202,44 @@ export default function App({ content = BUILT_IN_CONTENT }: { content?: SiteCont
               <p className="text-xs text-spa-linen/70 font-light leading-relaxed max-w-xs">
                 Premium walks-in day spa sanctuary & custom on-demand in-home mobile therapies. Qualified hands selected to work strictly on your terms.
               </p>
-              <div className="pt-2 flex gap-4 text-spa-linen/80">
+              <div className="pt-1 -ml-3.5 flex text-spa-linen/80">
                 {/* Only the spa's own Instagram: the Facebook and X icons linked to those sites' home pages, not to SMM. */}
-                <a href="https://www.instagram.com/oges.vlog_spa/" target="_blank" rel="noopener noreferrer" aria-label="SMM on Instagram" className="hover:text-spa-gold transition-colors"><Instagram className="w-4 h-4" aria-hidden="true" /></a>
-                <a href="https://t.me/sweet_mobile_massage" target="_blank" rel="noopener noreferrer" aria-label="Telegram" className="hover:text-spa-gold transition-colors"><Send className="w-4 h-4" /></a>
+                <a href="https://www.instagram.com/oges.vlog_spa/" target="_blank" rel="noopener noreferrer" aria-label="SMM on Instagram" className="flex h-11 w-11 items-center justify-center hover:text-spa-gold transition-colors"><Instagram className="w-4 h-4" aria-hidden="true" /></a>
+                <a href="https://t.me/sweet_mobile_massage" target="_blank" rel="noopener noreferrer" aria-label="SMM on Telegram" className="flex h-11 w-11 items-center justify-center hover:text-spa-gold transition-colors"><Send className="w-4 h-4" aria-hidden="true" /></a>
               </div>
             </div>
 
             {/* Column 2: Navigation Links */}
             <div className="md:col-span-2 space-y-4 text-xs">
-              <h4 className="uppercase tracking-widest font-semibold text-spa-gold text-[10px]">Quick Navigation</h4>
-              <ul className="space-y-2.5 font-light text-spa-linen/80">
-                <li><a href="#" className="hover:text-spa-gold transition-colors">Home Base</a></li>
-                <li><a href="#about" className="hover:text-spa-gold transition-colors">About the Spa</a></li>
-                <li><a href="#services" className="hover:text-spa-gold transition-colors">Therapy Menu</a></li>
-                <li><a href="#packages" className="hover:text-spa-gold transition-colors">Couples &amp; Four Hands</a></li>
-                <li><a href={PRICE_LIST_URL} className="hover:text-spa-gold transition-colors">Full Price List</a></li>
-                <li><a href="#gallery" className="hover:text-spa-gold transition-colors">Interactive Gallery</a></li>
-                <li><a href="#booking" className="hover:text-spa-gold transition-colors">Secure a Slot</a></li>
+              <h4 className="uppercase tracking-widest font-semibold text-spa-gold text-xs">Quick Navigation</h4>
+              <ul className="-my-2.5 font-light text-spa-linen/80">
+                <li><a href="#" className="inline-flex min-h-11 items-center hover:text-spa-gold transition-colors">Home Base</a></li>
+                <li><a href="#about" className="inline-flex min-h-11 items-center hover:text-spa-gold transition-colors">About the Spa</a></li>
+                <li><a href="#services" className="inline-flex min-h-11 items-center hover:text-spa-gold transition-colors">Therapy Menu</a></li>
+                <li><a href="#packages" className="inline-flex min-h-11 items-center hover:text-spa-gold transition-colors">Couples &amp; Four Hands</a></li>
+                <li><a href={PRICE_LIST_URL} className="inline-flex min-h-11 items-center hover:text-spa-gold transition-colors">Full Price List</a></li>
+                <li><a href="#gallery" className="inline-flex min-h-11 items-center hover:text-spa-gold transition-colors">Interactive Gallery</a></li>
+                <li><a href="#booking" className="inline-flex min-h-11 items-center hover:text-spa-gold transition-colors">Secure a Slot</a></li>
               </ul>
             </div>
 
             {/* Column 3: Contact details */}
             <div className="md:col-span-3 space-y-4 text-xs">
-              <h4 className="uppercase tracking-widest font-semibold text-spa-gold text-[10px]">Contact Info</h4>
-              <ul className="space-y-2.5 font-light text-spa-linen/80">
+              <h4 className="uppercase tracking-widest font-semibold text-spa-gold text-xs">Contact Info</h4>
+              <ul className="space-y-1 font-light text-spa-linen/80">
                 {contact.email && (
                   <li className="flex items-center gap-2">
                     <Mail className="w-3.5 h-3.5 text-spa-gold flex-shrink-0" />
-                    <a href={`mailto:${contact.email}`} className="hover:text-spa-gold transition-colors">{contact.email}</a>
+                    <a href={`mailto:${contact.email}`} className="inline-flex min-h-11 items-center hover:text-spa-gold transition-colors">{contact.email}</a>
                   </li>
                 )}
-                <li className="flex items-center gap-2 flex-wrap">
+                <li className="flex items-center gap-x-2 flex-wrap">
                   <Phone className="w-3.5 h-3.5 text-spa-gold flex-shrink-0" />
-                  <a href={`tel:${contact.phone.tel}`} className="hover:text-spa-gold transition-colors">{contact.phone.display}</a>
+                  <a href={`tel:${contact.phone.tel}`} className="inline-flex min-h-11 items-center hover:text-spa-gold transition-colors">{contact.phone.display}</a>
                   {[contact.phoneSecondary, contact.phoneThird].map((p) => p && (
                     <span key={p.tel} className="contents">
                       <span className="text-spa-linen/40" aria-hidden="true">/</span>
-                      <a href={`tel:${p.tel}`} className="hover:text-spa-gold transition-colors">{p.display}</a>
+                      <a href={`tel:${p.tel}`} className="inline-flex min-h-11 items-center hover:text-spa-gold transition-colors">{p.display}</a>
                     </span>
                   ))}
                 </li>
@@ -1208,7 +1254,7 @@ export default function App({ content = BUILT_IN_CONTENT }: { content?: SiteCont
 
             {/* Column 4: Apply to be therapist CTA */}
             <div className="md:col-span-3 space-y-4 text-xs">
-              <h4 className="uppercase tracking-widest font-semibold text-spa-gold text-[10px]">Join Our Crew</h4>
+              <h4 className="uppercase tracking-widest font-semibold text-spa-gold text-xs">Join Our Crew</h4>
               <p className="text-xs text-spa-linen/70 font-light leading-relaxed">
                 Certified therapist looking to work in luxury conditions on your own schedule?
               </p>
@@ -1225,7 +1271,7 @@ export default function App({ content = BUILT_IN_CONTENT }: { content?: SiteCont
 
           </div>
 
-          <div className="border-t border-white/5 mt-16 pt-8 text-center text-[10px] text-spa-linen/60 flex flex-col sm:flex-row justify-between items-center gap-4">
+          <div className="border-t border-white/5 mt-16 pt-8 text-center text-xs text-spa-linen/60 flex flex-col sm:flex-row justify-between items-center gap-4">
             <p>Copyright © 2026 SMM (Sweet Mobile Massage and Spa). All Rights Reserved.</p>
             <p className="font-light">
               Designed with 🤍 for a Premium Sensory Experience
