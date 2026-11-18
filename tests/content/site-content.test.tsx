@@ -6,7 +6,7 @@ import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import App from '../../src/App';
 import Eyebrow, { EYEBROW_TEXT } from '../../src/components/Eyebrow';
 import {
-  contactDetails, DEFAULT_CONTACT, setContactDetails, toPhoneNumber, toWhatsAppNumber, whatsappUrl,
+  contactDetails, DEFAULT_CONTACT, GOOGLE_REVIEWS, setContactDetails, toPhoneNumber, toWhatsAppNumber, whatsappUrl,
 } from '../../src/config/business';
 import { BUILT_IN_CONTENT, mergeContent, type SiteContent } from '../../src/content/useSiteContent';
 import { faqsData, galleryData } from '../../src/data';
@@ -75,6 +75,14 @@ describe('content', () => {
     expect(screen.getByRole('heading', { name: /tranquil feedback/i })).toBeTruthy();
     expect(screen.getByText('Adaeze O.')).toBeTruthy();
     expect(screen.getByRole('img', { name: '4 out of 5 stars' })).toBeTruthy();
+    // The spa's Google rating, and a link to every review on Google (new tab).
+    expect(screen.getByText(`from ${GOOGLE_REVIEWS.count} Google reviews`)).toBeTruthy();
+    const google = screen.getByRole('link', { name: `Read all ${GOOGLE_REVIEWS.count} reviews on Google (opens in a new tab)` });
+    expect(google.getAttribute('href')).toBe(GOOGLE_REVIEWS.url);
+    expect(google.getAttribute('target')).toBe('_blank');
+    expect(google.getAttribute('rel')).toContain('noopener');
+    // The numbers bar quotes the same rating.
+    expect(screen.getByText(`From ${GOOGLE_REVIEWS.count} Google reviews`)).toBeTruthy();
   });
 
   it("the owner's FAQs, heading and announcements are shown as plain text", () => {

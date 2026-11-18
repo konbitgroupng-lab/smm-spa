@@ -15,6 +15,17 @@ export const WHATSAPP_WELCOME = `Hello! 👋 Welcome to ${BUSINESS_NAME}.\n\nHow
 /** Sent when the visitor presses Send with an empty message. */
 export const WHATSAPP_DEFAULT_ENQUIRY = 'Hello! 👋 I would like to make an enquiry. Please assist me.';
 
+/**
+ * The spa's Google Business listing, as Google showed it on 19 November 2026.
+ * Update the rating and count when they change; the reviews themselves are
+ * managed in the staff app (Website > Reviews).
+ */
+export const GOOGLE_REVIEWS = {
+  url: 'https://share.google/UaXjI2ZJy2A4iMTFL',
+  rating: 4.9,
+  count: 23,
+};
+
 // ---------------------------------------------------------------------------
 // Contact details. The values above are the built-in ones; the owner can
 // change them in the staff app (Website > Contact details), and the site

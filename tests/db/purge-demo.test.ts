@@ -99,6 +99,11 @@ describe('removing demo data before launch', () => {
     await db.exec(LOAD_CONTENT); // a second run adds nothing
     expect(await count(db, `faqs where is_published and not is_demo`)).toBe(7);
     expect(await count(db, `gallery_items where is_published and not is_demo`)).toBe(5);
+    // The spa's six Google reviews, word for word, each labelled as a Google review.
+    const reviews = await rows(db, `select author_name, author_location, body, rating from testimonials where is_published and not is_demo order by sort_order`);
+    expect(reviews.map((r) => r.author_name)).toEqual(['Sikiru O.', 'David A.', 'Praizethompson', 'Feyisayo S.', 'Ezenagu E.', 'Emmanuel I.']);
+    expect(reviews.every((r) => r.author_location === 'Google review' && r.rating === 5)).toBe(true);
+    expect(reviews[1].body).toBe("I've had massage sessions a couple of times but this is the best so far.\n\nShe's jovial and super considerate, and always out to give the best experience.\n\nThank you✨");
     expect((await one(db, `select value->>'whatsapp' as w, is_published from site_content where key = 'contact'`))).toEqual({ w: '+234 811 859 9365', is_published: true });
     // The same text as the website's built-in questions.
     const { faqsData } = await import('../../src/data');

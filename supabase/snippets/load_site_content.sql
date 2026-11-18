@@ -1,6 +1,6 @@
 -- Loads the website's current content into a new project as editable,
--- real (non-demo) content: the seven FAQs, the five gallery pictures and the
--- contact details the site shows. Run once in the SQL editor after
+-- real (non-demo) content: the seven FAQs, the five gallery pictures, the six
+-- Google reviews and the contact details the site shows. Run once in the SQL editor after
 -- purge_demo_data.sql. Safe to run again: each part is skipped if that kind of
 -- content already exists. The owner can then change everything in the staff
 -- app (Website). Tested in tests/db/purge-demo.test.ts.
@@ -26,6 +26,22 @@ select * from (values
   ('Relaxation Lounge', 'sanctuary', '/assets/images/spa_wellness_corner_1783345984514.jpg', 4, true, false),
   ('Professional Swedish Treatment', 'treatments', '/assets/images/swedish_massage_1783346044608.jpg', 5, true, false)) as v (title, category, image_url, sort_order, is_published, is_demo)
 where not exists (select 1 from public.gallery_items);
+
+-- The spa's real Google reviews (Google Business listing, copied word for word
+-- on 19 November 2026). Six five-star reviews; names as first name and surname initial.
+insert into public.testimonials (author_name, author_location, body, rating, sort_order, is_published, is_demo)
+select * from (values
+  ('Sikiru O.', 'Google review', $r$I had an outstanding experience with their service. From the moment I made contact, I was impressed by the professionalism and attention to detail displayed by the therapist. Every interaction felt seamless, and their commitment to providing top-notch service was evident throughout the entire process. They truly went above and beyond to ensure my needs were met, leaving me thoroughly satisfied and grateful.$r$, 5, 1, true, false),
+  ('David A.', 'Google review', $r$I've had massage sessions a couple of times but this is the best so far.
+
+She's jovial and super considerate, and always out to give the best experience.
+
+Thank you✨$r$, 5, 2, true, false),
+  ('Praizethompson', 'Google review', $r$I decides to give her a trial and trust me in my years of several sessions with a masseuse this was the best I ever had$r$, 5, 3, true, false),
+  ('Feyisayo S.', 'Google review', $r$Her massage session is a very relaxing, she is very good on a scale of 100% and very friendly also✅$r$, 5, 4, true, false),
+  ('Ezenagu E.', 'Google review', $r$Highly professional, good at her job and friendly too, she is one d best around.$r$, 5, 5, true, false),
+  ('Emmanuel I.', 'Google review', $r$Thank you oge ,I have great experience from ur beautiful ladies so many times n I will hide it worthy every single money I paid for services God bless you immensely one love ❤️‍🔥❤️‍🔥❤️‍🔥❤️‍🔥 ❤️‍🔥❤️‍🔥$r$, 5, 6, true, false)) as v (author_name, author_location, body, rating, sort_order, is_published, is_demo)
+where not exists (select 1 from public.testimonials);
 
 insert into public.site_content (key, value, description, is_published, is_demo)
 values ('contact',

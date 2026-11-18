@@ -39,7 +39,8 @@ import {
   BadgePercent,
   Send,
   Play,
-  Pause
+  Pause,
+  ExternalLink
 } from 'lucide-react';
 import {
   servicesData,
@@ -52,7 +53,7 @@ import {
 } from './data';
 import VideoGalleryPreview from './videos/VideoGalleryPreview';
 import GalleryPreview from './gallery/GalleryPreview';
-import { contactDetails, whatsappUrl } from './config/business';
+import { contactDetails, GOOGLE_REVIEWS, whatsappUrl } from './config/business';
 import { BUILT_IN_CONTENT, type SiteContent } from './content/useSiteContent';
 import AnnouncementStrip from './content/AnnouncementStrip';
 import WhatsAppEnquiryLink from './components/WhatsAppEnquiryLink';
@@ -438,7 +439,7 @@ export default function App({ content = BUILT_IN_CONTENT }: { content?: SiteCont
       <section className="bg-spa-charcoal border-b border-white/5">
         <div className="max-w-7xl mx-auto px-6 py-8 grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8">
           {[
-            { icon: Star, label: '4.9★ Average Rating', sub: 'From verified guest reviews' },
+            { icon: Star, label: `${GOOGLE_REVIEWS.rating}★ Average Rating`, sub: `From ${GOOGLE_REVIEWS.count} Google reviews` },
             { icon: Users, label: '1,000+ Happy Clients', sub: 'Served across Lagos' },
             { icon: Award, label: 'Certified Master Therapists', sub: 'Rigorously vetted & trained' },
             { icon: ShieldCheck, label: '100% Hygiene-First Protocol', sub: 'Sanitized tools & fresh linens' }
@@ -779,13 +780,20 @@ export default function App({ content = BUILT_IN_CONTENT }: { content?: SiteCont
             <Eyebrow>Guest Experiences</Eyebrow>
             <h2 className="font-serif text-3xl md:text-5xl text-spa-charcoal"><span className="italic">Tranquil</span> Feedback</h2>
             <div className="w-12 h-[1px] bg-spa-gold mx-auto mt-4"></div>
+            {/* The spa's Google rating: what guests say on its Google Business listing */}
+            <p className="flex items-center justify-center gap-2 pt-2 text-sm text-spa-clay-text">
+              <span className="font-serif text-2xl text-spa-charcoal">{GOOGLE_REVIEWS.rating}</span>
+              <span aria-hidden="true" className="text-spa-gold-dark tracking-wider">★★★★★</span>
+              <span>from {GOOGLE_REVIEWS.count} Google reviews</span>
+            </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          {/* Centred rows of up to three: a short last row stays centred */}
+          <div className="flex flex-wrap justify-center gap-8">
             {testimonials.map((test) => (
               <div 
                 key={test.id}
-                className="bg-white border border-spa-taupe p-8 rounded shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col justify-between"
+                className="w-full md:w-[calc((100%-4rem)/3)] bg-white border border-spa-taupe p-8 rounded shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col justify-between"
               >
                 <div className="space-y-4">
                   {/* Rating gold stars */}
@@ -794,7 +802,8 @@ export default function App({ content = BUILT_IN_CONTENT }: { content?: SiteCont
                       <span key={i} aria-hidden="true" className="text-spa-gold-dark font-bold">★</span>
                     ))}
                   </div>
-                  <p className="text-sm text-spa-clay-text font-light leading-relaxed italic">
+                  {/* Word for word, keeping the reviewer's own line breaks */}
+                  <p className="text-sm text-spa-clay-text font-light leading-relaxed italic whitespace-pre-line">
                     "{test.text}"
                   </p>
                 </div>
@@ -811,6 +820,19 @@ export default function App({ content = BUILT_IN_CONTENT }: { content?: SiteCont
                 </div>
               </div>
             ))}
+          </div>
+
+          <div className="mt-12 text-center">
+            <a
+              href={GOOGLE_REVIEWS.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex min-h-11 items-center gap-2 rounded border border-spa-charcoal px-7 py-3 text-xs font-bold uppercase tracking-widest text-spa-charcoal transition-colors hover:bg-spa-charcoal hover:text-spa-cream focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-spa-gold-dark focus-visible:ring-offset-2"
+            >
+              Read all {GOOGLE_REVIEWS.count} reviews on Google{' '}
+              <ExternalLink className="h-4 w-4" aria-hidden="true" />
+              <span className="sr-only">(opens in a new tab)</span>
+            </a>
           </div>
         </div>
       </section>

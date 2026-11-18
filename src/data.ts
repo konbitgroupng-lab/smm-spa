@@ -239,33 +239,6 @@ export const galleryData: GalleryItem[] = [
   }
 ];
 
-export const testimonialsData: Testimonial[] = [
-  {
-    id: 't-1',
-    name: 'Chioma Nwachukwu',
-    location: 'Lekki Phase 1',
-    text: 'I booked the Mobile Hot Stone Massage to my apartment, and the experience was truly incredible. The therapist arrived with specialized warmers, soft music, and pristine linens. It felt like a 5-star hotel in my own living room.',
-    rating: 5,
-    serviceName: 'Hot Stone Therapy'
-  },
-  {
-    id: 't-2',
-    name: 'Tunde Bakare',
-    location: 'Ikeja Gra',
-    text: 'Best Deep Tissue massage I have had in Lagos. David really knows muscular structure. He targetted my lower back tightness perfectly. The boutique sanctuary in Mende, Maryland is incredibly quiet and peaceful.',
-    rating: 5,
-    serviceName: 'Deep Tissue Massage'
-  },
-  {
-    id: 't-3',
-    name: 'Sarah Adebayo',
-    location: 'Victoria Island',
-    text: 'SMM (Sweet Mobile Massage and Spa) is my monthly luxury treat. Their online booking is seamless, and their level of transparency about pricing is so refreshing—no hidden costs. Highly recommend Amina for Swedish bliss.',
-    rating: 5,
-    serviceName: 'Swedish Massage'
-  }
-];
-
 export const faqsData: FAQItem[] = [
   {
     id: 'faq-1',
