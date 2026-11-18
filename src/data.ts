@@ -267,7 +267,7 @@ export const galleryData: GalleryItem[] = [
     id: 'gal-2',
     title: 'Heated Volcanic Basalt Stones',
     category: 'treatments',
-    imageUrl: '/assets/images/hot_stone_massage_1783345970205.jpg'
+    imageUrl: '/assets/images/gallery-hot-stones.jpg'
   },
   {
     id: 'gal-3',

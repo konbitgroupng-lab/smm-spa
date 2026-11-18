@@ -133,7 +133,7 @@ insert into public.testimonials (author_name, author_location, body, rating, is_
 
 insert into public.gallery_items (title, category, image_url, sort_order, is_demo) values
   ('Serene Sanctuary Room', 'sanctuary', '/assets/images/spa_hero_banner_1783345955168.jpg', 1, true),
-  ('Heated Volcanic Basalt Stones', 'treatments', '/assets/images/hot_stone_massage_1783345970205.jpg', 2, true),
+  ('Heated Volcanic Basalt Stones', 'treatments', '/assets/images/gallery-hot-stones.jpg', 2, true),
   ('Aromatherapy Oils & Rituals', 'therapy', '/assets/images/spa_aromatherapy_1783346057871.jpg', 3, true),
   ('Relaxation Lounge', 'sanctuary', '/assets/images/spa_wellness_corner_1783345984514.jpg', 4, true),
   ('Professional Swedish Treatment', 'treatments', '/assets/images/swedish_massage_1783346044608.jpg', 5, true);

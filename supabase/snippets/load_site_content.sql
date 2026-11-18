@@ -21,7 +21,7 @@ where not exists (select 1 from public.faqs);
 insert into public.gallery_items (title, category, image_url, sort_order, is_published, is_demo)
 select * from (values
   ('Serene Sanctuary Room', 'sanctuary', '/assets/images/spa_hero_banner_1783345955168.jpg', 1, true, false),
-  ('Heated Volcanic Basalt Stones', 'treatments', '/assets/images/hot_stone_massage_1783345970205.jpg', 2, true, false),
+  ('Heated Volcanic Basalt Stones', 'treatments', '/assets/images/gallery-hot-stones.jpg', 2, true, false),
   ('Aromatherapy Oils & Rituals', 'therapy', '/assets/images/spa_aromatherapy_1783346057871.jpg', 3, true, false),
   ('Relaxation Lounge', 'sanctuary', '/assets/images/spa_wellness_corner_1783345984514.jpg', 4, true, false),
   ('Professional Swedish Treatment', 'treatments', '/assets/images/swedish_massage_1783346044608.jpg', 5, true, false)) as v (title, category, image_url, sort_order, is_published, is_demo)
