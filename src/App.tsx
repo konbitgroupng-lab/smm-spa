@@ -54,6 +54,8 @@ import { BUILT_IN_CONTENT, type SiteContent } from './content/useSiteContent';
 import AnnouncementStrip from './content/AnnouncementStrip';
 import WhatsAppEnquiryLink from './components/WhatsAppEnquiryLink';
 import Eyebrow from './components/Eyebrow';
+import { COUPLES_EXPERIENCES, naira } from './content/priceList';
+import { PRICE_LIST_URL } from './routes';
 import MoreDetails from './components/MoreDetails';
 import SpaBookingWidget from './components/SpaBookingWidget';
 import SiteMenu, { type SiteMenuLink } from './components/SiteMenu';
@@ -79,7 +81,7 @@ const teamData: TeamMember[] = [
 const NAV_LINKS: SiteMenuLink[] = [
   { href: '#about', label: 'About Us' },
   { href: '#services', label: 'Services' },
-  { href: '#packages', label: 'Packages' },
+  { href: PRICE_LIST_URL, label: 'Price List' },
   { href: '#gallery', label: 'Gallery' },
   { href: '#video-gallery', label: 'Video Gallery' },
   { href: '#therapists', label: 'Our Therapists' },
@@ -520,7 +522,7 @@ export default function App({ content = BUILT_IN_CONTENT }: { content?: SiteCont
             <h2 className="font-serif text-3xl md:text-5xl text-spa-charcoal">Our <span className="italic">Healing</span> Services</h2>
             <div className="w-12 h-[1px] bg-spa-gold mx-auto mt-4"></div>
             <p className="text-spa-clay-text text-sm font-light mt-4">
-              Carefully conceptualized 60-minute therapies to heal muscular distress, enhance deep sleep, and re-establish physical tranquility.
+              Carefully crafted therapies to heal muscular distress, enhance deep sleep, and re-establish physical tranquility.
             </p>
           </div>
 
@@ -578,38 +580,48 @@ export default function App({ content = BUILT_IN_CONTENT }: { content?: SiteCont
             ))}
           </div>
 
-          <div className="mt-16 text-center text-xs text-spa-clay-text italic flex items-center justify-center gap-2">
-            <Info className="w-4 h-4 text-spa-gold" />
-            <span>All therapies can be custom prolonged to 90 or 120 minutes. Simply coordinate with your assigned therapist.</span>
+          <div className="mt-14 flex flex-col items-center gap-5 text-center">
+            <p className="text-xs text-spa-clay-text italic flex items-center justify-center gap-2">
+              <Info className="w-4 h-4 text-spa-gold-dark flex-shrink-0" aria-hidden="true" />
+              <span>Massage sessions run 50 minutes to 1 hour. We offer over 40 treatments, including facials, pedicures, body scrubs and waxing.</span>
+            </p>
+            <a
+              href={PRICE_LIST_URL}
+              className="inline-flex min-h-11 items-center gap-2 rounded border border-spa-charcoal px-7 py-3 text-xs font-bold uppercase tracking-widest text-spa-charcoal transition-colors hover:bg-spa-charcoal hover:text-spa-cream"
+            >
+              View the full price list
+              <ArrowRight className="h-4 w-4" aria-hidden="true" />
+            </a>
           </div>
 
         </div>
       </section>
 
-      {/* Signature Packages - bundled therapies at a discount, our highest-value offers */}
+      {/* Couples & Four Hands - two therapists at once, so booked on WhatsApp (online
+          booking reserves one therapist per appointment) */}
       <section id="packages" className="py-24 bg-spa-cream relative">
         <div className="max-w-7xl mx-auto px-6">
 
           <div className="text-center max-w-2xl mx-auto space-y-4 mb-16">
-            <Eyebrow>Bundle & Save</Eyebrow>
-            <h2 className="font-serif text-3xl md:text-5xl text-spa-charcoal"><span className="italic">Signature</span> Packages</h2>
+            <Eyebrow>Share the Calm</Eyebrow>
+            <h2 className="font-serif text-3xl md:text-5xl text-spa-charcoal">Couples &amp; <span className="italic">Four Hands</span></h2>
             <div className="w-12 h-[1px] bg-spa-gold mx-auto mt-4"></div>
             <p className="text-spa-clay-text text-sm font-light mt-4">
-              Combine our most-loved therapies into one extended sanctuary visit — curated for deeper results and better value.
+              Two therapists at once: side by side with someone special, or both working on you. 65-minute sessions, booked with our team on WhatsApp so both therapists are reserved for you.
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {siteCatalog.packages.map((pkg) => (
+            {COUPLES_EXPERIENCES.map((exp) => (
               <div
-                key={pkg.id}
+                key={exp.id}
                 className={`relative bg-white border rounded overflow-hidden flex flex-col justify-between transition-all duration-300 ${
-                  pkg.popular
+                  exp.popular
                     ? 'border-spa-gold shadow-2xl md:-translate-y-3'
                     : 'border-spa-taupe hover:shadow-xl'
                 }`}
               >
-                {pkg.popular && (
+                {exp.popular && (
                   <div className="absolute top-4 right-4 bg-spa-gold text-spa-charcoal text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full z-10">
                     Most Popular
                   </div>
@@ -617,8 +629,8 @@ export default function App({ content = BUILT_IN_CONTENT }: { content?: SiteCont
 
                 <div className="relative h-36 sm:h-48 overflow-hidden">
                   <img
-                    src={pkg.imageUrl}
-                    alt={pkg.name}
+                    src={exp.imageUrl}
+                    alt=""
                     className="w-full h-full object-cover brightness-95"
                     referrerPolicy="no-referrer"
                   />
@@ -626,32 +638,28 @@ export default function App({ content = BUILT_IN_CONTENT }: { content?: SiteCont
 
                 <div className="p-5 sm:p-8 space-y-4 sm:space-y-5 flex-1">
                   <div className="space-y-1 border-b border-spa-taupe pb-4">
-                    <h3 className="font-serif text-2xl text-spa-charcoal font-medium">{pkg.name}</h3>
-                    <p className="text-xs text-spa-clay-text">{pkg.duration} mins total</p>
+                    <h3 className="font-serif text-2xl text-spa-charcoal font-medium">{exp.name}</h3>
+                    <p className="text-xs text-spa-clay-text">{exp.duration} mins · two therapists</p>
                   </div>
 
-                  <p className="text-sm text-spa-clay-text font-light leading-relaxed">{pkg.description}</p>
+                  <p className="text-sm text-spa-clay-text font-light leading-relaxed">{exp.description}</p>
 
-                  <MoreDetails label="What's included" items={pkg.benefits} />
-
-                  <div className="flex items-baseline gap-3 pt-2">
-                    <span className="font-serif text-3xl font-semibold text-spa-gold-dark">{pkg.formattedPrice}</span>
-                    <span className="text-sm text-spa-clay-text line-through">{pkg.formattedOriginalPrice}</span>
-                  </div>
+                  <p className="font-serif text-3xl font-semibold text-spa-gold-dark pt-2">{naira(exp.price)}</p>
                 </div>
 
                 <div className="p-5 sm:p-8 pt-0 sm:pt-0">
-                  <button
-                    onClick={() => handleQuickBook(pkg)}
-                    className={`w-full py-3.5 text-xs font-bold uppercase tracking-widest transition-all duration-300 rounded border ${
-                      pkg.popular
+                  <a
+                    href={whatsappUrl(`Hello, I would like to book the ${exp.name} (${exp.duration} mins, ${naira(exp.price)}). Please let me know the available times.`)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`flex w-full items-center justify-center gap-2 py-3.5 text-xs font-bold uppercase tracking-widest transition-all duration-300 rounded border ${
+                      exp.popular
                         ? 'bg-spa-gold hover:bg-spa-gold-dark text-spa-charcoal hover:text-white border-spa-gold'
                         : 'bg-spa-charcoal hover:bg-spa-gold text-spa-cream hover:text-spa-charcoal border-spa-charcoal/20'
                     }`}
                   >
-                    Book This Package
-                  </button>
-                  <WhatsAppEnquiryLink name={`the ${pkg.name} package`} details={[`${pkg.duration} mins`, pkg.formattedPrice]} />
+                    Book on WhatsApp
+                  </a>
                 </div>
               </div>
             ))}
@@ -921,7 +929,7 @@ export default function App({ content = BUILT_IN_CONTENT }: { content?: SiteCont
             <ul className="space-y-2">
               {[
                 'Priority booking access, even in peak periods',
-                'Member-only pricing on Signature Packages',
+                'Member-only pricing on couples and four-hands massages',
                 'A complimentary treat on your birthday month'
               ].map((perk, i) => (
                 <li key={i} className="flex items-start gap-2.5 text-sm text-spa-linen/70 font-light">
@@ -1162,7 +1170,8 @@ export default function App({ content = BUILT_IN_CONTENT }: { content?: SiteCont
                 <li><a href="#" className="hover:text-spa-gold transition-colors">Home Base</a></li>
                 <li><a href="#about" className="hover:text-spa-gold transition-colors">About the Spa</a></li>
                 <li><a href="#services" className="hover:text-spa-gold transition-colors">Therapy Menu</a></li>
-                <li><a href="#packages" className="hover:text-spa-gold transition-colors">Signature Packages</a></li>
+                <li><a href="#packages" className="hover:text-spa-gold transition-colors">Couples &amp; Four Hands</a></li>
+                <li><a href={PRICE_LIST_URL} className="hover:text-spa-gold transition-colors">Full Price List</a></li>
                 <li><a href="#gallery" className="hover:text-spa-gold transition-colors">Interactive Gallery</a></li>
                 <li><a href="#booking" className="hover:text-spa-gold transition-colors">Secure a Slot</a></li>
               </ul>
@@ -1181,12 +1190,12 @@ export default function App({ content = BUILT_IN_CONTENT }: { content?: SiteCont
                 <li className="flex items-center gap-2 flex-wrap">
                   <Phone className="w-3.5 h-3.5 text-spa-gold flex-shrink-0" />
                   <a href={`tel:${contact.phone.tel}`} className="hover:text-spa-gold transition-colors">{contact.phone.display}</a>
-                  {contact.phoneSecondary && (
-                    <>
-                      <span className="text-spa-linen/40">/</span>
-                      <a href={`tel:${contact.phoneSecondary.tel}`} className="hover:text-spa-gold transition-colors">{contact.phoneSecondary.display}</a>
-                    </>
-                  )}
+                  {[contact.phoneSecondary, contact.phoneThird].map((p) => p && (
+                    <span key={p.tel} className="contents">
+                      <span className="text-spa-linen/40" aria-hidden="true">/</span>
+                      <a href={`tel:${p.tel}`} className="hover:text-spa-gold transition-colors">{p.display}</a>
+                    </span>
+                  ))}
                 </li>
                 {contact.address && (
                   <li className="flex items-start gap-2 leading-relaxed">

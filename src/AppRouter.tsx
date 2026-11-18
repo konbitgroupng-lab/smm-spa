@@ -10,6 +10,7 @@ const BookingConfirmationPage = lazy(() => import('./booking/BookingConfirmation
 const DemoCheckoutPage = lazy(() => import('./prototype/DemoCheckoutPage'));
 const VideoGalleryPage = lazy(() => import('./videos/VideoGalleryPage'));
 const TransferBookingPage = lazy(() => import('./booking/TransferBookingPage'));
+const PriceListPage = lazy(() => import('./pricing/PriceListPage'));
 
 export default function AppRouter({ search }: { search: string }) {
   const view = resolveView(search);
@@ -33,6 +34,7 @@ export default function AppRouter({ search }: { search: string }) {
         {view.page === 'demo-checkout' && <DemoCheckoutPage reference={view.reference} />}
         {view.page === 'videos' && <VideoGalleryPage videoId={view.videoId} />}
         {view.page === 'transfer' && <TransferBookingPage token={view.token} />}
+        {view.page === 'prices' && <PriceListPage />}
       </Suspense>
       {concierge}
     </>

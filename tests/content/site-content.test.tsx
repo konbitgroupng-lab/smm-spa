@@ -37,7 +37,7 @@ describe('contact details', () => {
   it('the saved details replace the built-in ones; blank optional ones are hidden, blank numbers keep the built-in', () => {
     setContactDetails({ address: '  ', phone: '', phone_secondary: null, email: 'hello@smm.example', whatsapp: '+234 700 000 0001' });
     expect(contactDetails()).toEqual({
-      phone: DEFAULT_CONTACT.phone, phoneSecondary: null, email: 'hello@smm.example', address: null, whatsapp: '2347000000001',
+      phone: DEFAULT_CONTACT.phone, phoneSecondary: null, phoneThird: null, email: 'hello@smm.example', address: null, whatsapp: '2347000000001',
     });
     expect(whatsappUrl('Hi')).toBe('https://wa.me/2347000000001?text=Hi');
     setContactDetails(null);
@@ -132,7 +132,7 @@ describe('gold text', () => {
 
   it('no light-background section label on the homepage still uses the bright gold for its words', () => {
     render(<App />);
-    const labels = ['The SMM Vibe', 'Curated Therapy', 'Bundle & Save', 'Seamless Reservation', 'Tranquility Captured', 'See It In Motion', 'The Hands Behind The Ritual', 'Clear Guidance'];
+    const labels = ['The SMM Vibe', 'Curated Therapy', 'Share the Calm', 'Seamless Reservation', 'Tranquility Captured', 'See It In Motion', 'The Hands Behind The Ritual', 'Clear Guidance'];
     for (const text of labels) {
       const el = screen.getByText(text).parentElement!;
       expect(el.className, text).toContain('text-spa-gold-dark');

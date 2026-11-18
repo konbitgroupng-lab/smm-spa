@@ -56,6 +56,7 @@ export interface ContactDetails {
   address?: string | null;
   phone?: string | null;
   phone_secondary?: string | null;
+  phone_third?: string | null;
   email?: string | null;
   whatsapp?: string | null;
 }

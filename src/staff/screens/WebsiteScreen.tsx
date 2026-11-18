@@ -319,17 +319,17 @@ function period(a: Pick<ContentAnnouncement, 'startsAt' | 'endsAt'>): string {
 function ContactForm({ ops, c, reload }: { ops: StaffOps; c: SiteContent; reload: () => Promise<void> }) {
   const v = c.contact.value ?? {};
   const [f, setF] = useState({
-    address: v.address ?? '', phone: v.phone ?? '', phoneSecondary: v.phone_secondary ?? '', email: v.email ?? '', whatsapp: v.whatsapp ?? '',
+    address: v.address ?? '', phone: v.phone ?? '', phoneSecondary: v.phone_secondary ?? '', phoneThird: v.phone_third ?? '', email: v.email ?? '', whatsapp: v.whatsapp ?? '',
   });
   const set = (k: keyof typeof f) => (value: string) => setF((x) => ({ ...x, [k]: value }));
   const clean = (s: string) => s.trim() || null;
   return (
     <div className="max-w-xl">
       <Panel title="Contact details">
-        <p className="text-sm mb-4">Shown in the website footer and used by the call and WhatsApp buttons. A blank address, second phone or email is hidden; a blank phone or WhatsApp number keeps the website's built-in one.</p>
+        <p className="text-sm mb-4">Shown in the website footer and used by the call and WhatsApp buttons. A blank address, second or third phone, or email is hidden; a blank phone or WhatsApp number keeps the website's built-in one.</p>
         <SaveForm submitLabel="Save contact details" onSubmit={async () => {
           await ops.saveContact(c.contact.updatedAt, {
-            address: clean(f.address), phone: clean(f.phone), phone_secondary: clean(f.phoneSecondary), email: clean(f.email), whatsapp: clean(f.whatsapp),
+            address: clean(f.address), phone: clean(f.phone), phone_secondary: clean(f.phoneSecondary), phone_third: clean(f.phoneThird), email: clean(f.email), whatsapp: clean(f.whatsapp),
           });
           await reload();
           return 'Contact details saved.';
@@ -337,6 +337,7 @@ function ContactForm({ ops, c, reload }: { ops: StaffOps; c: SiteContent; reload
           <TextAreaField label="Address" value={f.address} onChange={set('address')} rows={2} maxLength={300} />
           <Field label="Phone" type="tel" value={f.phone} onChange={set('phone')} required={false} autoComplete="off" hint="With the country code, for example +234 811 859 9365." />
           <Field label="Second phone (optional)" type="tel" value={f.phoneSecondary} onChange={set('phoneSecondary')} required={false} autoComplete="off" />
+          <Field label="Third phone (optional)" type="tel" value={f.phoneThird} onChange={set('phoneThird')} required={false} autoComplete="off" />
           <Field label="WhatsApp number" type="tel" value={f.whatsapp} onChange={set('whatsapp')} required={false} autoComplete="off" hint="The number guests message from the website. With the country code." />
           <Field label="Email" type="email" value={f.email} onChange={set('email')} required={false} autoComplete="off" />
         </SaveForm>

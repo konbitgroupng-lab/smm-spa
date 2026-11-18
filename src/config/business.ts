@@ -29,6 +29,7 @@ export interface PhoneNumber {
 export interface ContactInfo {
   phone: PhoneNumber;
   phoneSecondary: PhoneNumber | null;
+  phoneThird: PhoneNumber | null;
   email: string | null;
   address: string | null;
   /** WhatsApp number, digits only, country code first. */
@@ -37,7 +38,9 @@ export interface ContactInfo {
 
 export const DEFAULT_CONTACT: ContactInfo = {
   phone: { display: PHONE_DISPLAY, tel: PHONE_E164 },
-  phoneSecondary: { display: '+234 706 667 2648', tel: '+2347066672648' },
+  // The spa's other two lines, from its price list (November 2026).
+  phoneSecondary: { display: '+234 913 533 0351', tel: '+2349135330351' },
+  phoneThird: { display: '+234 701 090 0261', tel: '+2347010900261' },
   email: 'ogebestie7@gmail.com',
   address: '9B Oki Lane, Mende, Maryland, Lagos.',
   whatsapp: WHATSAPP_NUMBER,
@@ -73,6 +76,7 @@ export interface SavedContact {
   address?: string | null;
   phone?: string | null;
   phone_secondary?: string | null;
+  phone_third?: string | null;
   email?: string | null;
   whatsapp?: string | null;
 }
@@ -92,6 +96,7 @@ export function setContactDetails(saved: SavedContact | null): ContactInfo {
   contact = {
     phone: toPhoneNumber(saved.phone) ?? DEFAULT_CONTACT.phone,
     phoneSecondary: toPhoneNumber(saved.phone_secondary),
+    phoneThird: toPhoneNumber(saved.phone_third),
     email: email && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) ? email : null,
     address: text(saved.address),
     whatsapp: toWhatsAppNumber(saved.whatsapp) ?? DEFAULT_CONTACT.whatsapp,

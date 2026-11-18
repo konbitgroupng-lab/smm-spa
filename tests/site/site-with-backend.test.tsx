@@ -139,13 +139,9 @@ describe('booking through the website', () => {
     expect(Number(appointment.total_minor)).toBe(4_800_000);
   });
 
-  it('"Book This Package" on a package card preselects it, and the server prices it', async () => {
+  it('a package chosen in the booking steps is priced by the server', async () => {
     const user = await open();
-    await screen.findByRole('navigation', { name: /booking steps/i });
-    await waitFor(() => expect(screen.getAllByRole('button', { name: /book this package/i }).length).toBe(3));
-    await user.click(screen.getAllByRole('button', { name: /book this package/i })[0]);
-    await waitFor(() => expect((within(funnel()).getByRole('radio', { name: /essential escape/i }) as HTMLInputElement).checked).toBe(true));
-    expect(document.activeElement).toBe(screen.getByRole('heading', { name: /schedule your therapy/i }));
+    await chooseTreatment(user, /essential escape/i);
     await chooseTherapistAndDate(user, null, upcoming(WED));
     await chooseTime(user, '09:00');
     await enterDetailsAndReview(user);

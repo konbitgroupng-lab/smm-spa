@@ -29,7 +29,7 @@ describe('website lists', () => {
     await userEvent.clear(screen.getByLabelText('Address'));
     await userEvent.click(screen.getByRole('button', { name: 'Save contact details' }));
     await waitFor(() => expect(ops.saveContact).toHaveBeenCalledWith(V1, {
-      address: null, phone: '+234 811 859 9365', phone_secondary: null, email: 'hello@smm.example', whatsapp: '+234 811 859 9365',
+      address: null, phone: '+234 811 859 9365', phone_secondary: null, phone_third: null, email: 'hello@smm.example', whatsapp: '+234 811 859 9365',
     }));
     expect(await screen.findByText('Contact details saved.')).toBeTruthy();
     expect(ops.content).toHaveBeenCalledTimes(2); // reloaded after saving

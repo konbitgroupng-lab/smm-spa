@@ -100,3 +100,9 @@ body {
   -webkit-mask: url('/assets/images/smm_logo_mask.png') center / contain no-repeat;
   mask: url('/assets/images/smm_logo_mask.png') center / contain no-repeat;
 }
+
+/* Printing (the Full Price List prints as the downloadable PDF): white paper. */
+@media print {
+  @page { size: A4; }
+  html, body { background: #fff; }
+}

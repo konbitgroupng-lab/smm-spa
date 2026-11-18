@@ -12,7 +12,7 @@ import { at, upcoming, WED } from './dates';
 const PHASE_5_LAST = '20261015000100';
 const revertDir = path.resolve(__dirname, '../../supabase/revert');
 // Newest first, as the runbook says.
-const DOWN = ['20261019000200_bank_transfer.down.sql', '20261016000200_content_functions.down.sql', '20261016000100_content_security.down.sql'];
+const DOWN = ['20261020000100_contact_third_phone.down.sql', '20261019000200_bank_transfer.down.sql', '20261016000200_content_functions.down.sql', '20261016000100_content_security.down.sql'];
 
 async function rollBack(db: PGlite, files = DOWN) {
   await db.exec('begin');
@@ -84,6 +84,7 @@ describe('rolling back Phase 6', () => {
     expect(reapplied).toEqual([
       '20261016000100_content_security.sql', '20261016000200_content_functions.sql',
       '20261019000100_bank_transfer_settlement.sql', '20261019000200_bank_transfer.sql',
+      '20261020000100_contact_third_phone.sql',
     ]);
     expect(await snapshot(full)).toEqual(withPhase6);
     await full.close();

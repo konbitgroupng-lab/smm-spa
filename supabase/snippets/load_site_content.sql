@@ -29,7 +29,7 @@ where not exists (select 1 from public.gallery_items);
 
 insert into public.site_content (key, value, description, is_published, is_demo)
 values ('contact',
-        '{"address": "9B Oki Lane, Mende, Maryland, Lagos.", "phone": "+234 811 859 9365", "phone_secondary": "+234 706 667 2648", "email": "ogebestie7@gmail.com", "whatsapp": "+234 811 859 9365"}'::jsonb,
+        '{"address": "9B Oki Lane, Mende, Maryland, Lagos.", "phone": "+234 811 859 9365", "phone_secondary": "+234 913 533 0351", "phone_third": "+234 701 090 0261", "email": "ogebestie7@gmail.com", "whatsapp": "+234 811 859 9365"}'::jsonb,
         'Contact details shown in the footer and used by the call and WhatsApp buttons', true, false)
 on conflict (key) do nothing;
 

@@ -46,29 +46,12 @@ export interface Testimonial {
 
 export const servicesData: Service[] = [
   {
-    id: 'facial-treatment',
-    name: 'Premium Facial Treatment',
-    category: 'Skincare',
-    duration: 60,
-    price: 45000,
-    formattedPrice: '₦45,000',
-    description: 'An advanced hydrating facial using precision skin-resurfacing technology to deep-cleanse pores, boost circulation, and reveal a smoother, more radiant complexion.',
-    benefits: [
-      'Deep-cleanses & unclogs congested pores',
-      'Boosts collagen production & skin elasticity',
-      'Improves circulation for a natural, healthy glow',
-      'Reduces fine lines & uneven skin texture',
-      'Leaves skin visibly smoother & more hydrated'
-    ],
-    imageUrl: '/assets/images/facial-treatment.jpg'
-  },
-  {
     id: 'swedish',
     name: 'Swedish Massage',
     category: 'Relaxation',
     duration: 60,
-    price: 40000,
-    formattedPrice: '₦40,000',
+    price: 33000,
+    formattedPrice: '₦33,000',
     description: 'A classic relaxation therapy utilizing long, gliding strokes and gentle kneading to melt away daily stress and tension.',
     benefits: [
       'Promotes deep body relaxation & stress relief',
@@ -84,15 +67,15 @@ export const servicesData: Service[] = [
     name: 'Deep Tissue Massage',
     category: 'Therapeutic',
     duration: 60,
-    price: 40000,
-    formattedPrice: '₦40,000',
+    price: 35000,
+    formattedPrice: '₦35,000',
     description: 'Designed to target deep layers of muscle and connective tissue. Highly beneficial for chronic muscle tightness, soreness, and physical fatigue.',
     benefits: [
       'Alleviates chronic muscle pain & heavy tension',
       'Improves posture, mobility, & overall range of motion',
-      'Breaks down painful scar tissue & knots',
-      'Accelerates muscle recovery & athletic repair',
-      'Provides profound somatic stress relief'
+      'Works out painful knots & tight spots',
+      'Supports muscle recovery after exercise',
+      'Provides deep, lasting stress relief'
     ],
     imageUrl: '/assets/images/deep-tissue-massage.jpg'
   },
@@ -101,51 +84,68 @@ export const servicesData: Service[] = [
     name: 'Hot Stone Therapy',
     category: 'Sensory',
     duration: 60,
-    price: 50000,
-    formattedPrice: '₦50,000',
-    description: 'Combining smooth, heated basalt volcanic stones with traditional massage strokes to penetrate deep warmth into your muscles, encouraging deep sensory harmony.',
+    price: 40000,
+    formattedPrice: '₦40,000',
+    description: 'Combining smooth, heated basalt stones with traditional massage strokes to carry deep warmth into your muscles and melt away tension.',
     benefits: [
-      'Relieves intense muscle tension & somatic discomfort',
-      'Soothing thermal action improves blood circulation',
-      'Assists in deep lymphatic drainage',
-      'Soothes symptoms of restlessness, anxiety, & mental fatigue',
-      'Unlocks energy flow and emotional peace'
+      'Relieves intense muscle tension & discomfort',
+      'Soothing warmth improves blood circulation',
+      'Eases restlessness, anxiety & mental fatigue',
+      'Loosens tight muscles before deeper work',
+      'Leaves you calm, warm and deeply rested'
     ],
     imageUrl: '/assets/images/hot_stone_massage_1783345970205.jpg'
   },
   {
-    id: 'nuru',
-    name: 'Nuru Massage',
-    category: 'Sensory & Ultimate Wellness',
+    id: 'aromatherapy',
+    name: 'Aromatherapy Massage',
+    category: 'Relaxation',
     duration: 60,
-    price: 80000,
-    formattedPrice: '₦80,000',
-    description: 'A deeply sensual and nourishing therapy that utilizes seaweed-based lubricants for a uniquely fluid, body-to-body touch technique that unlocks ultimate relaxation.',
+    price: 40000,
+    formattedPrice: '₦40,000',
+    description: 'A soothing full-body massage with blended essential oils, chosen to help you relax, breathe deeply and let go of the day.',
     benefits: [
-      'Provides an unmatched full-body sensory experience',
-      'Extremely skin-hydrating seaweed formulation',
-      'Deeply calming for the nervous system',
-      'Dissolves absolute muscular and psychological fatigue',
-      'Customized and catered with highest professional standards'
+      'Calming essential oils for body and mind',
+      'Gentle, flowing strokes for deep relaxation',
+      'Helps ease stress and improve sleep',
+      'Nourishes and softens the skin',
+      'Leaves a light, lasting sense of calm'
     ],
-    imageUrl: '/assets/images/nuru-massage.jpg'
+    imageUrl: '/assets/images/aromatherapy-massage.jpg'
   },
   {
-    id: 'thai-massage',
-    name: 'Thai Massage',
-    category: 'Therapeutic',
-    duration: 60,
-    price: 45000,
-    formattedPrice: '₦45,000',
-    description: 'A traditional therapy combining assisted stretching and rhythmic compression along the body\'s energy lines to relieve tension, stress, and stiffness.',
+    id: 'moroccan-scrub',
+    name: 'Hammam Moroccan Body Scrub',
+    category: 'Body Treatment',
+    duration: 90,
+    price: 60000,
+    formattedPrice: '₦60,000',
+    description: 'A deep, Hammam-style exfoliating body scrub with a sauna session before and after the treatment, for smooth, glowing skin. ₦70,000 for an in-home visit.',
     benefits: [
-      'Relieves tension & stress throughout the body',
-      'Improves flexibility & joint range of motion',
-      'Stimulates circulation & energy flow',
-      'Eases stiffness in the back, hips, & shoulders',
-      'Leaves the mind and body feeling restored'
+      'Removes dead skin for a smoother, brighter glow',
+      'Sauna before and after opens and refreshes the skin',
+      'Helps even out dull, uneven skin tone',
+      'Leaves skin baby-soft and ready to absorb moisture',
+      'A deeply cleansing, restorative ritual'
     ],
-    imageUrl: '/assets/images/thai-massage.jpg'
+    imageUrl: '/assets/images/moroccan-body-scrub.jpg'
+  },
+  {
+    id: 'facial-treatment',
+    name: 'High Frequency Facial',
+    category: 'Skincare',
+    duration: 60,
+    price: 30000,
+    formattedPrice: '₦30,000',
+    description: 'A deep-cleansing facial finished with a high-frequency wand that gently energises the skin, helps calm breakouts and leaves the complexion clear and refreshed.',
+    benefits: [
+      'Deep-cleanses & unclogs congested pores',
+      'Helps calm breakouts and blemishes',
+      'Boosts circulation for a natural, healthy glow',
+      'Refines uneven skin texture',
+      'Leaves skin visibly smoother & refreshed'
+    ],
+    imageUrl: '/assets/images/facial-treatment.jpg'
   }
 ];
 
@@ -156,66 +156,10 @@ export interface SpaPackage extends Service {
   popular?: boolean;
 }
 
-export const packagesData: SpaPackage[] = [
-  {
-    id: 'pkg-essential',
-    name: 'Essential Escape',
-    category: 'Package',
-    duration: 120,
-    price: 80000,
-    formattedPrice: '₦80,000',
-    originalPrice: 90000,
-    formattedOriginalPrice: '₦90,000',
-    includedServiceIds: ['swedish', 'hot-stone'],
-    description: 'A calming two-treatment introduction pairing our signature Swedish massage with warming Hot Stone therapy.',
-    benefits: [
-      'Swedish Massage (60 mins)',
-      'Hot Stone Therapy (60 mins)',
-      'Save ₦10,000 versus booking separately'
-    ],
-    imageUrl: '/assets/images/spa_wellness_corner_1783345984514.jpg'
-  },
-  {
-    id: 'pkg-signature',
-    name: 'Signature Retreat',
-    category: 'Package',
-    duration: 180,
-    price: 110000,
-    formattedPrice: '₦110,000',
-    originalPrice: 130000,
-    formattedOriginalPrice: '₦130,000',
-    popular: true,
-    includedServiceIds: ['swedish', 'deep-tissue', 'hot-stone'],
-    description: 'Our most-booked combination — full-body relaxation, therapeutic muscle work, and soothing warmth in one extended sanctuary visit.',
-    benefits: [
-      'Swedish Massage (60 mins)',
-      'Deep Tissue Massage (60 mins)',
-      'Hot Stone Therapy (60 mins)',
-      'Save ₦20,000 versus booking separately'
-    ],
-    imageUrl: '/assets/images/hot_stone_massage_1783345970205.jpg'
-  },
-  {
-    id: 'pkg-ultimate',
-    name: 'Ultimate Indulgence',
-    category: 'Package',
-    duration: 240,
-    price: 175000,
-    formattedPrice: '₦175,000',
-    originalPrice: 210000,
-    formattedOriginalPrice: '₦210,000',
-    includedServiceIds: ['swedish', 'deep-tissue', 'hot-stone', 'nuru'],
-    description: 'The complete SMM ritual — every signature therapy in a single unhurried, four-hour wellness journey.',
-    benefits: [
-      'Swedish Massage (60 mins)',
-      'Deep Tissue Massage (60 mins)',
-      'Hot Stone Therapy (60 mins)',
-      'Nuru Massage (60 mins)',
-      'Save ₦35,000 versus booking separately'
-    ],
-    imageUrl: '/assets/images/spa_aromatherapy_1783346057871.jpg'
-  }
-];
+// Bundled packages offered for online booking. None at the moment: the couples and
+// four-hands experiences need two therapists and are booked on WhatsApp
+// (src/content/priceList.ts, COUPLES_EXPERIENCES).
+export const packagesData: SpaPackage[] = [];
 
 export const therapistsData: Therapist[] = [
   {

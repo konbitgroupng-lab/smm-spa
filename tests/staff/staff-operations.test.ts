@@ -245,10 +245,11 @@ describe('website content end to end (6b)', () => {
     expect(c.contact.updatedAt).not.toBeNull();
 
     // Contact details replace the block; an out-of-date version is refused.
-    await ops.saveContact(c.contact.updatedAt, { address: 'Maryland, Lagos', phone: '+234 811 859 9365', whatsapp: '+2348118599365', email: null });
+    await ops.saveContact(c.contact.updatedAt, { address: 'Maryland, Lagos', phone: '+234 811 859 9365', phone_third: '0701 090 0261', whatsapp: '+2348118599365', email: null });
     const stale = c.contact.updatedAt;
     c = await ops.content();
-    expect(c.contact).toMatchObject({ isPublished: true, value: { address: 'Maryland, Lagos', phone: '+234 811 859 9365', whatsapp: '+2348118599365', email: null } });
+    expect(c.contact).toMatchObject({ isPublished: true, value: { address: 'Maryland, Lagos', phone: '+234 811 859 9365', phone_third: '0701 090 0261', whatsapp: '+2348118599365', email: null } });
+    expect((await failure(ops.saveContact(c.contact.updatedAt, { phone_third: 'not a number' }))).code).toBe('invalid_content');
     expect((await failure(ops.saveContact(stale, { phone: '+234 811 859 9365' }))).code).toBe('stale_record');
     expect((await failure(ops.saveContact(c.contact.updatedAt, { phone: 'call us' }))).code).toBe('invalid_content');
 

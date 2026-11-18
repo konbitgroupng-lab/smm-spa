@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { packagesData, servicesData } from '../../src/data';
 import { formatMoney, toMinorUnits } from '../../src/lib/money';
@@ -23,9 +25,12 @@ describe('catalogue without Supabase configured', () => {
 });
 
 describe('catalogue from the database', () => {
-  it('maps what a guest can read into the shape the site components use', async () => {
+  it('after the price-list update, guests read exactly the six treatments on the website, mapped into the shape the site uses', async () => {
     const db = await createTestDb();
-    await db.query(`update services set is_active = false where slug = 'thai-massage'`);
+    // The client's price list (supabase/snippets/catalogue_price_list_2026_11.sql), twice: it is safe to run again.
+    const update = readFileSync(path.resolve(__dirname, '../../supabase/snippets/catalogue_price_list_2026_11.sql'), 'utf8');
+    await db.exec(update);
+    await db.exec(update);
 
     const { serviceRows, itemRows, therapistRows } = await asRole(db, 'anon', null, async () => ({
       serviceRows: await rows<ServiceRow>(db, `select * from services order by sort_order`),
@@ -41,9 +46,8 @@ describe('catalogue from the database', () => {
 
     const catalog = mapCatalog(normalised, itemRows);
 
-    // Same content as the static site, minus the service that was switched off.
-    const expected = servicesData.filter((s) => s.id !== 'thai-massage');
-    expect(catalog.services.map(({ dbId, bufferMinutes, currency, ...s }) => s)).toEqual(expected);
+    // Same content as the static site; Nuru, Thai and the invented packages are switched off.
+    expect(catalog.services.map(({ dbId, bufferMinutes, currency, ...s }) => s)).toEqual(servicesData);
     expect(catalog.services.every((s) => s.dbId && s.bufferMinutes === 15)).toBe(true);
     expect(catalog.packages.map(({ dbId, bufferMinutes, currency, ...p }) => p)).toEqual(
       packagesData.map((p) => ({ ...p, popular: p.popular ?? false })),

@@ -14,7 +14,7 @@ Nothing here has been done yet. Each part is its own approved step: the producti
 | An email sending service (SMTP) login, for example the client's Google Workspace, Zoho or Resend | 5 | So invitations and password-reset emails arrive reliably. |
 | Domain name, if wanted (for example `smmspa.ng`) | 8 | Bought by the client, in their name. |
 | Bank account for direct transfers | 4.3 | The site offers the account from the previous version (Standard Chartered Bank, 0013819712, Sweet Mobile Massage and Spa Limited). The owner confirms or corrects it in the staff app (Settings › Bank transfer). |
-| Second phone number check | — | The footer shows +234 706 667 2648 (the number its call link always dialled); the old text said 0706 672 648. The owner can correct it in Website › Contact details. |
+| Phone numbers | — | From the client's price list: 0811 859 9365 (also WhatsApp), 0913 533 0351 and 0701 090 0261. |
 
 ## 2. Fix now on the development backend (small, safe)
 
@@ -67,7 +67,8 @@ Check: `node --env-file=.env.local scripts/hosted-check.mjs` shows no FAIL.
    ```
 
 5. **Remove the demo data.** Open `supabase/snippets/purge_demo_data.sql`; set `KEEP_CATALOGUE` to `true` if the client confirmed today's treatments (or `false` after entering the real ones in the staff app); run it in the SQL editor. It refuses to run until a real owner exists.
-6. **Website content.** Run `supabase/snippets/load_site_content.sql`: the website's seven FAQs, five gallery pictures and contact details become editable in the staff app.
+6. **The client's menu.** Run `supabase/snippets/catalogue_price_list_2026_11.sql`: the six bookable treatments and prices from the client's price list; Nuru, Thai and the old packages switched off.
+7. **Website content.** Run `supabase/snippets/load_site_content.sql`: the website's seven FAQs, five gallery pictures and contact details become editable in the staff app.
 
 Check: `node --env-file=.env.production.local scripts/hosted-check.mjs --production` (section 9).
 

@@ -31,8 +31,19 @@ describe('the website without a backend', () => {
     }
     // Service and package cards keep their static content.
     expect(screen.getAllByRole('button', { name: /select & customize booking/i }).length).toBe(6);
-    expect(screen.getAllByRole('button', { name: /book this package/i }).length).toBe(3);
-    expect(screen.getAllByText('₦40,000').length).toBeGreaterThan(0);
+    // Couples and four-hands massages need two therapists: booked on WhatsApp, not online.
+    const couples = document.getElementById('packages')!;
+    const whatsapp = within(couples).getAllByRole('link', { name: /book on whatsapp/i });
+    expect(whatsapp.map((a) => decodeURIComponent(new URL(a.getAttribute('href')!).searchParams.get('text')!))).toEqual([
+      'Hello, I would like to book the Couples Swedish Massage (65 mins, ₦65,000). Please let me know the available times.',
+      'Hello, I would like to book the Four Hands Swedish Massage (65 mins, ₦66,000). Please let me know the available times.',
+      'Hello, I would like to book the Couples Deep Tissue Massage (65 mins, ₦70,000). Please let me know the available times.',
+    ]);
+    expect(screen.queryByRole('button', { name: /book this package/i })).toBeNull();
+    // The client's prices.
+    expect(screen.getAllByText('₦33,000').length).toBeGreaterThan(0);
+    expect(screen.queryByText(/nuru/i)).toBeNull();
+    expect(screen.getByRole('link', { name: /view the full price list/i }).getAttribute('href')).toBe('/?view=prices');
     expect(await within(document.getElementById('booking')!).findByRole('heading', { name: /online booking is unavailable/i })).toBeTruthy();
   });
 
@@ -100,7 +111,7 @@ describe('the website without a backend', () => {
     const setItem = vi.spyOn(Storage.prototype, 'setItem');
     render(<AppRouter search="" />);
     const user = userEvent.setup();
-    await user.click(screen.getAllByRole('button', { name: /book this package/i })[0]);
+    await user.click(screen.getAllByRole('button', { name: /select & customize booking/i })[0]);
     await user.click(screen.getByRole('button', { name: /spa appointments/i }));
     const localWrites = setItem.mock.contexts.filter((store) => store === localStorage);
     expect(localWrites).toEqual([]);
