@@ -6,10 +6,10 @@ import { useEffect, useRef, useState } from 'react';
 // whose browser asks to save data, see its still frame instead.
 
 export const HERO_VIDEO = {
-  portrait: { src: '/assets/videos/hero/hero-portrait-v2.mp4', poster: '/assets/videos/hero/hero-portrait-v2.jpg' },
-  landscape: { src: '/assets/videos/hero/hero-landscape-v2.mp4', poster: '/assets/videos/hero/hero-landscape-v2.jpg' },
+  portrait: { src: '/assets/videos/hero/hero-portrait.mp4', poster: '/assets/videos/hero/hero-portrait.jpg' },
+  landscape: { src: '/assets/videos/hero/hero-landscape.mp4', poster: '/assets/videos/hero/hero-landscape.jpg' },
   /** Length of the film: the banner shows it once before moving to the next slide. */
-  durationMs: 8_100,
+  durationMs: 10_400,
 };
 
 const WIDE = '(min-aspect-ratio: 1/1)';
