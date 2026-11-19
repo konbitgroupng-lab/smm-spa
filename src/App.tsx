@@ -61,6 +61,7 @@ import Eyebrow from './components/Eyebrow';
 import { COUPLES_EXPERIENCES, naira } from './content/priceList';
 import { PRICE_LIST_URL } from './routes';
 import MoreDetails from './components/MoreDetails';
+import TikTokIcon, { TIKTOK_URL } from './components/TikTokIcon';
 import SpaBookingWidget from './components/SpaBookingWidget';
 import SiteMenu, { type SiteMenuLink } from './components/SiteMenu';
 import BookingSection from './booking/components/LazyBookingSection';
@@ -1099,9 +1100,10 @@ export default function App({ content = BUILT_IN_CONTENT }: { content?: SiteCont
                 Premium walks-in day spa sanctuary & custom on-demand in-home mobile therapies. Qualified hands selected to work strictly on your terms.
               </p>
               <div className="pt-1 -ml-3.5 flex text-spa-linen/80">
-                {/* Only the spa's own Instagram: the Facebook and X icons linked to those sites' home pages, not to SMM. */}
+                {/* Only the spa's own accounts: the Facebook and X icons linked to those sites' home pages, not to SMM. */}
                 <a href="https://www.instagram.com/oges.vlog_spa/" target="_blank" rel="noopener noreferrer" aria-label="SMM on Instagram" className="flex h-11 w-11 items-center justify-center hover:text-spa-gold transition-colors"><Instagram className="w-4 h-4" aria-hidden="true" /></a>
                 <a href="https://t.me/sweet_mobile_massage" target="_blank" rel="noopener noreferrer" aria-label="SMM on Telegram" className="flex h-11 w-11 items-center justify-center hover:text-spa-gold transition-colors"><Send className="w-4 h-4" aria-hidden="true" /></a>
+                <a href={TIKTOK_URL} target="_blank" rel="noopener noreferrer" aria-label="SMM on TikTok" className="flex h-11 w-11 items-center justify-center hover:text-spa-gold transition-colors"><TikTokIcon className="w-4 h-4" /></a>
               </div>
             </div>
 

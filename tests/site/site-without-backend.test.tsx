@@ -48,6 +48,13 @@ describe('the website without a backend', () => {
     // The number of treatments quoted under the cards matches the list.
     expect(allPriceItems().length).toBeGreaterThan(30);
     expect(document.body.textContent).toContain('We offer over 30 treatments');
+    // The footer links to the spa's own social accounts, each opening in a new tab.
+    const footer = document.getElementById('colophon')!;
+    const social = ['SMM on Instagram', 'SMM on Telegram', 'SMM on TikTok'].map((name) => within(footer).getByRole('link', { name }));
+    expect(social.map((a) => a.getAttribute('href'))).toEqual([
+      'https://www.instagram.com/oges.vlog_spa/', 'https://t.me/sweet_mobile_massage', 'https://www.tiktok.com/@sweetmobilemassage',
+    ]);
+    for (const a of social) expect(a.getAttribute('rel')).toContain('noopener');
     expect(screen.queryByRole('button', { name: /book this package/i })).toBeNull();
     // The client's prices.
     expect(screen.getAllByText('₦33,000').length).toBeGreaterThan(0);
