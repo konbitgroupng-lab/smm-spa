@@ -145,4 +145,12 @@ export const COUPLES_EXPERIENCES = [
     description: 'Firm, targeted deep tissue work for two guests side by side, for chronic tightness, knots and post-workout soreness.',
     imageUrl: '/assets/images/spa_hero_banner_1783345955168.jpg',
   },
+  {
+    id: 'four-hands-deep-tissue',
+    name: 'Four Hands Deep Tissue Massage',
+    price: 70_000,
+    duration: 65,
+    description: 'Two therapists work together on one guest with firm, deep pressure, for deeper relief from stubborn knots and chronic tightness.',
+    imageUrl: '/assets/images/deep-tissue-massage.jpg',
+  },
 ];

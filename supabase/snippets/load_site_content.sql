@@ -9,13 +9,13 @@ begin;
 
 insert into public.faqs (question, answer, sort_order, is_published, is_demo)
 select * from (values
-  ('How long is a typical massage session?', array['Our standard curated massage sessions are 60 minutes of hands-on treatment. Extended sessions can be arranged upon custom request.'], 1, true, false),
+  ('How long is a typical massage session?', array['Our standard massage sessions run 50 minutes to 1 hour of hands-on treatment. Extended sessions can be arranged upon custom request.'], 1, true, false),
   ('What should I wear during a massage?', array['Wear loose, comfortable clothing that you can easily transition out of. During the massage, you will be professionally draped with white luxury linens at all times, exposing only the specific area being treated.'], 2, true, false),
   ('Do I need a prior appointment?', array['Yes, we operate strictly by appointment to guarantee a serene, uncrowded space for every guest. Please note that booking payment validation secures your time slot.'], 3, true, false),
   ('What is your cancellation or rescheduling policy?', array['We request a minimum of 24 hours notice for any appointment cancellations or rescheduling. Cancellations made within 24 hours of your slot are subject to a standard 35% cancellation fee to compensate our therapists.'], 4, true, false),
   ('Where is your serene sanctuary located?', array['Our boutique physical sanctuary is located at: 9B Oki Lane, Mende, Maryland, Lagos, Nigeria. It is a secure, peaceful spot on the Mainland, easily reached from Ikeja, Yaba, and Gbagada.'], 5, true, false),
   ('What forms of payment do you accept?', array['We accept instant bank transfers and secure online credit/debit card payments. For mobile in-home services, prepayments are required to validate the booking and dispatch therapists.'], 6, true, false),
-  ('Are the in-home mobile services the same price?', array['Yes, the base service prices are identical!', 'We charge a nominal transport dispatch fee depending on your exact Lagos location (Lekki, VI, Ikeja, etc.) which is displayed transparently when finalizing your mobile booking.'], 7, true, false)) as v (question, answer, sort_order, is_published, is_demo)
+  ('Are the in-home mobile services the same price?', array['Yes, the base service prices are identical, except for body scrubs, which cost more at home: the Regular Body Scrub is ₦50,000 (₦40,000 at the spa) and the Hammam Moroccan Body Scrub is ₦70,000 (₦60,000 at the spa).', 'We charge a nominal transport dispatch fee depending on your exact Lagos location (Lekki, VI, Ikeja, etc.) which is displayed transparently when finalizing your mobile booking.'], 7, true, false)) as v (question, answer, sort_order, is_published, is_demo)
 where not exists (select 1 from public.faqs);
 
 insert into public.gallery_items (title, category, image_url, sort_order, is_published, is_demo)

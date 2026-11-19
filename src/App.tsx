@@ -616,7 +616,7 @@ export default function App({ content = BUILT_IN_CONTENT }: { content?: SiteCont
           <div className="mt-14 flex flex-col items-center gap-5 text-center">
             <p className="text-xs text-spa-clay-text italic flex items-center justify-center gap-2">
               <Info className="w-4 h-4 text-spa-gold-dark flex-shrink-0" aria-hidden="true" />
-              <span>Massage sessions run 50 minutes to 1 hour. We offer over 40 treatments, including facials, pedicures, body scrubs and waxing.</span>
+              <span>Massage sessions run 50 minutes to 1 hour. We offer over 30 treatments, including facials, pedicures, body scrubs and waxing.</span>
             </p>
             <a
               href={PRICE_LIST_URL}
@@ -644,7 +644,7 @@ export default function App({ content = BUILT_IN_CONTENT }: { content?: SiteCont
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
             {COUPLES_EXPERIENCES.map((exp) => (
               <div
                 key={exp.id}

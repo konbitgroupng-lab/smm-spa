@@ -6,6 +6,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import AppRouter from '../../src/AppRouter';
 import { installBrowserStubs } from './browser-stubs';
+import { allPriceItems, COUPLES_EXPERIENCES } from '../../src/content/priceList';
 
 // The whole website with no backend configured (as the live site is today):
 // it must render normally, with the booking section offering contact details.
@@ -38,7 +39,15 @@ describe('the website without a backend', () => {
       'Hello, I would like to book the Couples Swedish Massage (65 mins, ₦65,000). Please let me know the available times.',
       'Hello, I would like to book the Four Hands Swedish Massage (65 mins, ₦66,000). Please let me know the available times.',
       'Hello, I would like to book the Couples Deep Tissue Massage (65 mins, ₦70,000). Please let me know the available times.',
+      'Hello, I would like to book the Four Hands Deep Tissue Massage (65 mins, ₦70,000). Please let me know the available times.',
     ]);
+    // Every couples / four-hands massage on the client's price list, at its price.
+    const listed = new Map(allPriceItems().map((i) => [i.name, i.price]));
+    for (const exp of COUPLES_EXPERIENCES) expect(listed.get(exp.name), exp.name).toBe(exp.price);
+    expect(allPriceItems().filter((i) => /^(Couples|Four Hands)/.test(i.name)).map((i) => i.name).sort()).toEqual(COUPLES_EXPERIENCES.map((e) => e.name).sort());
+    // The number of treatments quoted under the cards matches the list.
+    expect(allPriceItems().length).toBeGreaterThan(30);
+    expect(document.body.textContent).toContain('We offer over 30 treatments');
     expect(screen.queryByRole('button', { name: /book this package/i })).toBeNull();
     // The client's prices.
     expect(screen.getAllByText('₦33,000').length).toBeGreaterThan(0);

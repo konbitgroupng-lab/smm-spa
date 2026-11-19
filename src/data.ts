@@ -243,7 +243,7 @@ export const faqsData: FAQItem[] = [
   {
     id: 'faq-1',
     question: 'How long is a typical massage session?',
-    answer: 'Our standard curated massage sessions are 60 minutes of hands-on treatment. Extended sessions can be arranged upon custom request.'
+    answer: 'Our standard massage sessions run 50 minutes to 1 hour of hands-on treatment. Extended sessions can be arranged upon custom request.'
   },
   {
     id: 'faq-2',
@@ -274,7 +274,7 @@ export const faqsData: FAQItem[] = [
     id: 'faq-7',
     question: 'Are the in-home mobile services the same price?',
     answer: [
-      'Yes, the base service prices are identical!',
+      'Yes, the base service prices are identical, except for body scrubs, which cost more at home: the Regular Body Scrub is ₦50,000 (₦40,000 at the spa) and the Hammam Moroccan Body Scrub is ₦70,000 (₦60,000 at the spa).',
       'We charge a nominal transport dispatch fee depending on your exact Lagos location (Lekki, VI, Ikeja, etc.) which is displayed transparently when finalizing your mobile booking.'
     ]
   }
